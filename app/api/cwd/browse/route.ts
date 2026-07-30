@@ -1,33 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
+import { homedir } from "os";
 import { stat } from "fs/promises";
 import {
-  getBrowseStartDirectory,
   getParentDirectory,
   listDirectories,
-  listWindowsDrives,
+  listDrives,
   resolveDirectory,
   shouldShowWindowsDrivePicker,
 } from "@/lib/directory-browser";
 
 // GET /api/cwd/browse?path=...：列出文件系统中的可读子目录。
+// 不带 path 时返回磁盘列表（Windows 盘符）+ 主目录快捷入口，
+// 作为目录选择器的起始「选择磁盘」视图。
 export async function GET(request: NextRequest) {
   try {
     const requested = request.nextUrl.searchParams.get("path")?.trim();
 
-    if (shouldShowWindowsDrivePicker(requested)) {
+    if (!requested) {
+      // 磁盘选择起始视图：列出可用磁盘 + 主目录快捷入口。
+      const drives = await listDrives();
       return NextResponse.json({
         path: "",
         parentPath: null,
-        drives: await listWindowsDrives(),
+        home: homedir(),
+        drives,
         directories: [],
       });
     }
 
-    const candidate = getBrowseStartDirectory(requested);
-
     let resolved: string;
     try {
-      resolved = await resolveDirectory(candidate);
+      resolved = await resolveDirectory(requested);
     } catch {
       return NextResponse.json({ error: "Directory does not exist" }, { status: 404 });
     }
