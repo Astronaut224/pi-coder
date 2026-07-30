@@ -11,6 +11,10 @@
   --color-text-dim: var(--text-dim);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-active: var(--accent-active);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-2: var(--accent-soft-2);
+  --color-accent-border: var(--accent-border);
   --color-user-bg: var(--user-bg);
   --color-assistant-bg: var(--assistant-bg);
   --color-tool-bg: var(--tool-bg);
@@ -19,37 +23,50 @@
 }
 
 :root {
+  /* Base neutrals — warm off-white, airy & modern.
+     Warm (R>=G>=B) instead of cold blue-gray, which read "老气/dated". */
   --bg: #ffffff;
-  --bg-panel: #f5f5f5;
-  --bg-hover: #eeeeee;
-  --bg-selected: #e8e8e8;
-  --border: #e0e0e0;
-  --text: #1a1a1a;
+  --bg-panel: #f8f8f6;
+  --bg-hover: #f0efea;
+  --bg-selected: #e7e6df;
+  --border: #e7e6df;
+  /* Text — deep neutral gray */
+  --text: #1f2329;
   --text-muted: #6b7280;
-  --text-dim: #9ca3af;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --user-bg: #eff6ff;
+  --text-dim: #98a2b3;
+  /* Brand orange — the 5% accent */
+  --accent: #f28c28;
+  --accent-hover: #e67e22;
+  --accent-active: #d96c0f;
+  --accent-soft: #fff4e8;
+  --accent-soft-2: #fff6ec;
+  --accent-border: #f7c38a;
+  /* Warm-tinted message/tool surfaces (15% light warm) */
+  --user-bg: #fff6ec;
   --assistant-bg: #ffffff;
-  --tool-bg: #f9fafb;
-  --bg-subtle: rgba(0,0,0,0.03);
+  --tool-bg: #faf6f0;
+  --bg-subtle: rgba(60, 45, 20, 0.035);
 }
 
 html.dark {
-  --bg: #1a1a1a;
-  --bg-panel: #242424;
-  --bg-hover: #2e2e2e;
-  --bg-selected: #383838;
-  --border: #3a3a3a;
-  --text: #e8e8e8;
-  --text-muted: #9ca3af;
-  --text-dim: #6b7280;
-  --accent: #60a5fa;
-  --accent-hover: #93c5fd;
-  --user-bg: #1e293b;
-  --assistant-bg: #1a1a1a;
-  --tool-bg: #1f2937;
-  --bg-subtle: rgba(255,255,255,0.04);
+  --bg: #1c1b1a;
+  --bg-panel: #24231f;
+  --bg-hover: #2f2d28;
+  --bg-selected: #3a3731;
+  --border: #393631;
+  --text: #eceae6;
+  --text-muted: #9c978d;
+  --text-dim: #736f68;
+  --accent: #f0932e;
+  --accent-hover: #f7a851;
+  --accent-active: #d96c0f;
+  --accent-soft: #3a2a18;
+  --accent-soft-2: #33240f;
+  --accent-border: #6b4a2a;
+  --user-bg: #2a211a;
+  --assistant-bg: #1c1b1a;
+  --tool-bg: #24211a;
+  --bg-subtle: rgba(255, 255, 255, 0.045);
 }
 
 /* Theme toggle: circular wipe via View Transitions API.
@@ -104,6 +121,28 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-dim);
+}
+
+/* Primary action button — warm orange gradient CTA.
+   Uses !important so it overrides the inline styles on the buttons it's applied to. */
+.btn-primary {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 86%, #fff) 0%, var(--accent) 52%, var(--accent-active) 100%) !important;
+  color: #fff !important;
+  box-shadow: 0 1px 2px rgba(242, 140, 40, 0.30), 0 4px 14px rgba(242, 140, 40, 0.22) !important;
+  transition: box-shadow 0.15s ease, filter 0.15s ease !important;
+}
+.btn-primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow: 0 2px 6px rgba(242, 140, 40, 0.36), 0 7px 22px rgba(242, 140, 40, 0.30) !important;
+}
+.btn-primary:active:not(:disabled) {
+  filter: brightness(0.96);
+  box-shadow: 0 1px 2px rgba(242, 140, 40, 0.28), 0 2px 8px rgba(242, 140, 40, 0.18) !important;
+}
+.btn-primary:disabled {
+  background: var(--bg-panel) !important;
+  color: var(--text-dim) !important;
+  box-shadow: none !important;
 }
 
 :root {

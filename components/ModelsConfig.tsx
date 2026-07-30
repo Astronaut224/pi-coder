@@ -913,7 +913,7 @@ function ModelDetail({
                 padding: "0 8px",
                 border: `1px solid ${testState.phase === "error" ? "#fecaca" : testState.phase === "success" ? "#bbf7d0" : "var(--border)"}`,
                 borderRadius: 4,
-                background: testState.phase === "error" ? "#fee2e2" : testState.phase === "success" ? "#dcfce7" : "#e5e7eb",
+                background: testState.phase === "error" ? "#fee2e2" : testState.phase === "success" ? "#dcfce7" : "var(--bg-selected)",
                 color: "#111827",
                 fontSize: 11,
                 display: "inline-flex",

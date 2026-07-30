@@ -714,7 +714,7 @@ export function AppShell() {
           transform: translateY(0);
           filter: blur(0);
           background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
-          box-shadow: 0 18px 44px rgba(37,99,235,0.16);
+          box-shadow: 0 18px 44px rgba(242,140,40,0.16);
         }
         100% {
           opacity: 1;
@@ -803,7 +803,7 @@ export function AppShell() {
         className={`sidebar-container${sidebarOpen ? " sidebar-open" : " sidebar-closed"}${mobileSidebarReady ? "" : " sidebar-mobile-pending"}${sidebarResizer.isResizing ? " sidebar-resizing" : ""}`}
         style={{
           "--sidebar-width": `${sidebarResizer.width}px`,
-          background: "var(--bg-panel)",
+          background: "linear-gradient(180deg, color-mix(in srgb, var(--bg-panel) 94%, #fff) 0%, var(--bg-panel) 55%, color-mix(in srgb, var(--bg-panel) 95%, #000) 100%)",
           borderRight: "1px solid var(--border)",
           display: "flex",
           flexDirection: "column",

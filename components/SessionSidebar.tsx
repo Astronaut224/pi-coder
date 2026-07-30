@@ -1038,7 +1038,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
                 if (!selectedCwd) return;
                 e.currentTarget.style.background = "var(--bg-selected)";
                 e.currentTarget.style.color = "var(--accent)";
-                e.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
+                e.currentTarget.style.borderColor = "rgba(242,140,40,0.35)";
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.background = "var(--bg-hover)";
@@ -1070,7 +1070,7 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
                 if (sessionRefreshDone) return;
                 e.currentTarget.style.background = "var(--bg-selected)";
                 e.currentTarget.style.color = "var(--accent)";
-                e.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
+                e.currentTarget.style.borderColor = "rgba(242,140,40,0.35)";
               }}
               onMouseLeave={(e) => {
                 if (sessionRefreshDone) return;
@@ -1104,8 +1104,8 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
               display: "flex",
               alignItems: "center",
               padding: "6px 10px",
-              background: selectedCwd ? "var(--bg-hover)" : "rgba(37,99,235,0.06)",
-              border: selectedCwd ? "1px solid var(--border)" : "1px solid rgba(37,99,235,0.4)",
+              background: selectedCwd ? "var(--bg-hover)" : "rgba(242,140,40,0.06)",
+              border: selectedCwd ? "1px solid var(--border)" : "1px solid rgba(242,140,40,0.4)",
               borderRadius: 7,
               cursor: "pointer",
               fontSize: 12,
@@ -2051,10 +2051,10 @@ function SessionItem({
         cursor: confirmDelete || renaming ? "default" : "pointer",
         background: confirmDelete
           ? "rgba(239,68,68,0.06)"
-          : isSelected ? "var(--bg-selected)" : hovered ? "var(--bg-hover)" : "transparent",
+          : isSelected ? "var(--accent-soft)" : hovered ? "var(--bg-hover)" : "transparent",
         borderLeft: confirmDelete
-          ? "2px solid #ef4444"
-          : isSelected ? "2px solid var(--accent)" : "2px solid transparent",
+          ? "3px solid #ef4444"
+          : isSelected ? "3px solid var(--accent)" : "3px solid transparent",
         transition: "background 0.1s",
         opacity: deleting ? 0.5 : 1,
         gap: 6,
@@ -2146,7 +2146,7 @@ function SessionItem({
                 gap: 5,
                 minWidth: 0,
                 fontSize: 12,
-                fontWeight: isSelected ? 500 : 400,
+                fontWeight: isSelected ? 600 : 400,
                 lineHeight: 1.4,
                 color: "var(--text)",
               }}
@@ -2222,7 +2222,7 @@ function SessionItem({
                   onMouseEnter={(e) => {
                     e.currentTarget.style.background = "var(--bg-selected)";
                     e.currentTarget.style.color = "var(--accent)";
-                    e.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
+                    e.currentTarget.style.borderColor = "rgba(242,140,40,0.35)";
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.background = "var(--bg-hover)";
@@ -2250,7 +2250,7 @@ function SessionItem({
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = "var(--bg-selected)";
                   e.currentTarget.style.color = "var(--accent)";
-                  e.currentTarget.style.borderColor = "rgba(37,99,235,0.35)";
+                  e.currentTarget.style.borderColor = "rgba(242,140,40,0.35)";
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.background = "var(--bg-hover)";
