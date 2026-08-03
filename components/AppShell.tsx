@@ -14,6 +14,7 @@ import { ProjectTrustDialog } from "./ProjectTrustDialog";
 import { BranchNavigator } from "./BranchNavigator";
 import { useTheme } from "@/hooks/useTheme";
 import { useI18n } from "@/hooks/useI18n";
+import { ThemePicker } from "./ThemePicker";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useViewportHeight } from "@/hooks/useViewportHeight";
 import { useResizablePanel } from "@/hooks/useResizablePanel";
@@ -46,12 +47,13 @@ type AutoNameStatus =
 
 const TOP_BAR_ICON_BUTTON_SIZE = 36;
 const LANGUAGE_MENU_WIDTH = 176;
+const THEME_MENU_WIDTH = 224;
 
 export function AppShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [initialNavigation] = useState(() => getInitialNavigation(searchParams));
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, themeName, isApplying, toggleTheme, setTheme } = useTheme();
   const { locale, setLocale, t: translate, supportedLocales } = useI18n();
   const isMobile = useIsMobile();
   useViewportHeight();
@@ -145,6 +147,7 @@ export function AppShell() {
   const chatInputRef = useRef<ChatInputHandle | null>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
   const languageBtnRef = useRef<HTMLButtonElement>(null);
+  const themeBtnRef = useRef<HTMLButtonElement>(null);
 
   // Branch navigator state — populated by ChatWindow via onBranchDataChange
   const [branchTree, setBranchTree] = useState<SessionTreeNode[]>([]);
@@ -201,10 +204,10 @@ export function AppShell() {
   }, []);
 
   // Single active panel — only one dropdown open at a time
-  const [activeTopPanel, setActiveTopPanel] = useState<"branches" | "system" | "session" | "language" | null>(null);
+  const [activeTopPanel, setActiveTopPanel] = useState<"branches" | "system" | "session" | "language" | "theme" | null>(null);
   const [topPanelPos, setTopPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
-  const toggleTopPanel = useCallback((panel: "branches" | "system" | "session" | "language") => {
+  const toggleTopPanel = useCallback((panel: "branches" | "system" | "session" | "language" | "theme") => {
     if (isMobile) setSidebarOpen(false);
     setActiveTopPanel((cur) => cur === panel ? null : panel);
   }, [isMobile]);
@@ -223,9 +226,15 @@ export function AppShell() {
     if (!activeTopPanel || !topBarRef.current) return;
     const update = () => {
       const topBarRect = topBarRef.current!.getBoundingClientRect();
-      if (activeTopPanel === "language" && !isMobile && languageBtnRef.current) {
-        const buttonRect = languageBtnRef.current.getBoundingClientRect();
-        const width = Math.min(LANGUAGE_MENU_WIDTH, topBarRect.width);
+      // Language and theme are narrow menus anchored to their toolbar button.
+      const narrowBtn =
+        activeTopPanel === "language" ? languageBtnRef.current
+        : activeTopPanel === "theme" ? themeBtnRef.current
+        : null;
+      if (narrowBtn && !isMobile) {
+        const narrowWidth = activeTopPanel === "language" ? LANGUAGE_MENU_WIDTH : THEME_MENU_WIDTH;
+        const buttonRect = narrowBtn.getBoundingClientRect();
+        const width = Math.min(narrowWidth, topBarRect.width);
         const left = Math.min(
           buttonRect.left - 1,
           Math.max(topBarRect.left, topBarRect.right - width),
@@ -239,8 +248,42 @@ export function AppShell() {
     const ro = new ResizeObserver(update);
     ro.observe(topBarRef.current);
     if (languageBtnRef.current) ro.observe(languageBtnRef.current);
+    if (themeBtnRef.current) ro.observe(themeBtnRef.current);
     return () => ro.disconnect();
   }, [activeTopPanel, isMobile]);
+
+  // Close the active top panel on Escape or on a pointer press outside the top
+  // bar. Applied uniformly to every top panel (language, theme, system, session,
+  // branches) so the theme picker reuses the shared mechanism instead of adding
+  // its own conflicting popup logic.
+  useEffect(() => {
+    if (!activeTopPanel) return;
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      // Let text inputs handle Escape internally (e.g. ChatInput menus / stop).
+      if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+      e.stopPropagation();
+      e.preventDefault();
+      setActiveTopPanel(null);
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node | null;
+      if (target && topBarRef.current && !topBarRef.current.contains(target)) {
+        setActiveTopPanel(null);
+      }
+    };
+
+    // Capture phase so this Escape wins over the global agent-stop handler,
+    // which is registered on window in the bubble phase (useGlobalKeyboardShortcuts).
+    window.addEventListener("keydown", onKey, true);
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [activeTopPanel]);
 
   // Right panel — file tabs only
   const [fileTabs, setFileTabs] = useState<Tab[]>([]);
@@ -714,7 +757,7 @@ export function AppShell() {
           transform: translateY(0);
           filter: blur(0);
           background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
-          box-shadow: 0 18px 44px rgba(242,140,40,0.16);
+          box-shadow: 0 18px 44px color-mix(in srgb, var(--accent) 16%, transparent);
         }
         100% {
           opacity: 1;
@@ -855,7 +898,7 @@ export function AppShell() {
           <button
             onClick={(e) => {
               const rect = e.currentTarget.getBoundingClientRect();
-              toggleTheme({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
+              void toggleTheme({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
             }}
              title={isDark ? translate("theme.light") : translate("theme.dark")}
              aria-label={isDark ? translate("theme.light") : translate("theme.dark")}
@@ -882,6 +925,35 @@ export function AppShell() {
                 <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
               </svg>
             )}
+           </button>
+           <button
+             ref={themeBtnRef}
+             type="button"
+             onClick={() => toggleTopPanel("theme")}
+             title={translate("theme.choose")}
+             aria-label={translate("theme.choose")}
+             aria-haspopup="menu"
+             aria-expanded={activeTopPanel === "theme"}
+             aria-pressed={Boolean(themeName)}
+             style={{
+               display: "flex", alignItems: "center", justifyContent: "center",
+               width: TOP_BAR_ICON_BUTTON_SIZE, height: TOP_BAR_ICON_BUTTON_SIZE, padding: 0,
+               background: activeTopPanel === "theme" ? "var(--bg-selected)" : "none",
+               border: "none", borderRight: "1px solid var(--border)",
+               color: activeTopPanel === "theme" ? "var(--text)" : themeName ? "var(--accent)" : "var(--text-muted)",
+               cursor: "pointer", flexShrink: 0, transition: "color 0.12s",
+             }}
+             onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
+             onMouseLeave={(e) => {
+               e.currentTarget.style.color = activeTopPanel === "theme" ? "var(--text)" : themeName ? "var(--accent)" : "var(--text-muted)";
+             }}
+           >
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+               <circle cx="8.5" cy="9.5" r="1.3" fill="currentColor" stroke="none" />
+               <circle cx="13" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
+               <circle cx="16.5" cy="11.5" r="1.3" fill="currentColor" stroke="none" />
+               <path d="M12 3a9 9 0 1 0 6.3 15.4.9.9 0 0 0-.2-1.3 2 2 0 0 1 .6-3.5h1.2A4 4 0 0 0 21 8.6 9 9 0 0 0 12 3z" />
+             </svg>
            </button>
            <button
              ref={languageBtnRef}
@@ -1287,6 +1359,16 @@ export function AppShell() {
                     </button>
                   ))}
                 </div>
+              )}
+              {activeTopPanel === "theme" && (
+                <ThemePicker
+                  currentThemeName={themeName}
+                  isApplying={isApplying}
+                  onSelect={(name) => {
+                    void setTheme(name);
+                    setActiveTopPanel(null);
+                  }}
+                />
               )}
               {activeTopPanel === "system" && (
                 <div style={{

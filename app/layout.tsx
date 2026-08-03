@@ -63,7 +63,7 @@ export default function RootLayout({
         <meta name="google" content="notranslate" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("pi-theme");if(t==="dark")document.documentElement.classList.add("dark")}catch(e){}})();`,
+            __html: `(function(){try{var root=document.documentElement;var mode=localStorage.getItem("pi-theme-mode");var legacy=localStorage.getItem("pi-theme");if(!mode&&(legacy==="light"||legacy==="dark")){mode=legacy;localStorage.setItem("pi-theme-mode",mode);localStorage.removeItem("pi-theme");}if(mode!=="light"&&mode!=="dark"){mode="light";}var themeName=localStorage.getItem("pi-theme-name")||"";root.classList.toggle("dark",mode==="dark");root.dataset.themeMode=mode;if(themeName){root.dataset.theme=themeName;}else{delete root.dataset.theme;}}catch(e){}})();`,
           }}
         />
       </head>

@@ -1,0 +1,31 @@
+{
+  "name": "example-dark",
+  "vars": {
+    "bg0": "#1c1b1a",
+    "bg1": "#24231f",
+    "bg2": "#2f2d28",
+    "bg3": "#393631",
+    "fg0": "#eceae6",
+    "fg3": "#9c978d",
+    "fg4": "#736f68",
+    "orange": "#f0932e",
+    "red": "#ef4444",
+    "green": "#22c55e",
+    "blue": "#60a5fa",
+    "yellow": "#facc15"
+  },
+  "colors": {
+    "accent": "orange",
+    "border": "bg3",
+    "borderAccent": "orange",
+    "text": "fg0",
+    "muted": "fg3",
+    "dim": "fg4",
+    "selectedBg": "bg2",
+    "success": "green",
+    "error": "red",
+    "warning": "yellow",
+    "userMessageBg": "bg1",
+    "toolSuccessBg": "bg1"
+  }
+}
