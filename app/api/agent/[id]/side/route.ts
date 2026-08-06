@@ -71,3 +71,16 @@ export async function POST(
     return NextResponse.json({ error: String(error) }, { status: 500 });
   }
 }
+
+// GET /api/agent/[id]/side - current committed messages + tool mode.
+// Used by the client to reload the full transcript on agent_end (the agent_end
+// SSE payload only carries the current run's new messages, not the whole chat).
+export async function GET(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  const entry = getSideChat(id);
+  if (!entry) return NextResponse.json({ error: "not-open" }, { status: 404 });
+  return NextResponse.json({ messages: entry.getMessages(), toolMode: entry.toolMode });
+}

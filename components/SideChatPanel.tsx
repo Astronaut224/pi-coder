@@ -20,7 +20,7 @@ export function SideChatPanel({ mainSessionId }: Props) {
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [sc.messages, sc.streamingText, sc.toolStatus]);
+  }, [sc.messages, sc.streamingMessage, sc.toolStatus]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -89,10 +89,8 @@ export function SideChatPanel({ mainSessionId }: Props) {
         {sc.messages.map((m, i) => (
           <MessageBubble key={i} message={m} />
         ))}
-        {sc.streamingText && (
-          <div style={{ alignSelf: "flex-start", maxWidth: "100%", color: "var(--text)" }}>
-            <MarkdownBody isStreaming>{sc.streamingText}</MarkdownBody>
-          </div>
+        {sc.streamingMessage && (
+          <MessageBubble message={sc.streamingMessage} streaming />
         )}
       </div>
 
@@ -142,7 +140,7 @@ function toolbarButtonStyle(active: boolean): CSSProperties {
   };
 }
 
-function MessageBubble({ message }: { message: AgentMessage }) {
+function MessageBubble({ message, streaming }: { message: AgentMessage; streaming?: boolean }) {
   const m = message as {
     role?: string;
     content?: string | Array<{ type: string; text?: string; toolName?: string }>;
@@ -169,7 +167,7 @@ function MessageBubble({ message }: { message: AgentMessage }) {
     const tools = blocks.filter((b) => b.type === "toolCall").map((b) => b.toolName ?? "tool");
     return (
       <div style={{ alignSelf: "flex-start", maxWidth: "100%", color: "var(--text)" }}>
-        {text && <MarkdownBody>{text}</MarkdownBody>}
+        {text && <MarkdownBody isStreaming={streaming}>{text}</MarkdownBody>}
         {tools.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
             {tools.map((name, i) => (

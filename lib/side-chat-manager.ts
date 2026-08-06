@@ -145,7 +145,14 @@ export class SideChatEntry {
   }
 }
 
-const entries = new Map<string, SideChatEntry>();
+// Store the registry on globalThis (like rpc-manager's __piSessions) so the side
+// chats survive Next.js dev hot-reload instead of being re-forked from scratch.
+const globalSideChats = globalThis as { __piSideChats?: Map<string, SideChatEntry> };
+const entries: Map<string, SideChatEntry> = globalSideChats.__piSideChats ?? (() => {
+  const map = new Map<string, SideChatEntry>();
+  globalSideChats.__piSideChats = map;
+  return map;
+})();
 
 /**
  * Ensure the main session exists and is alive, lazy-starting it the same way the

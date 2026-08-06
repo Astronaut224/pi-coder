@@ -8,7 +8,7 @@ export type SideChatErrorKind = "no-main-session" | "main-busy" | "network" | nu
 
 export interface UseSideChatResult {
   messages: AgentMessage[];
-  streamingText: string;
+  streamingMessage: AgentMessage | null;
   toolStatus: string;
   isStreaming: boolean;
   toolMode: SideChatToolMode;
@@ -23,7 +23,7 @@ export interface UseSideChatResult {
 
 export function useSideChat(mainSessionId: string | null): UseSideChatResult {
   const [messages, setMessages] = useState<AgentMessage[]>([]);
-  const [streamingText, setStreamingText] = useState("");
+  const [streamingMessage, setStreamingMessage] = useState<AgentMessage | null>(null);
   const [toolStatus, setToolStatus] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [toolMode, setToolModeState] = useState<SideChatToolMode>("readOnly");
@@ -53,12 +53,30 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
     else if (code === "main-busy") setError("main-busy");
   }, []);
 
+  // Reload the full committed transcript from the server. The agent_end SSE event
+  // carries only the current run's new messages (not the whole conversation), so —
+  // like the main chat's loadSession() on agent_end — we re-fetch the authoritative
+  // list instead of trusting the event payload.
+  const refreshMessages = useCallback(async () => {
+    if (!mainSessionId) return;
+    try {
+      const res = await fetch(`/api/agent/${encodeURIComponent(mainSessionId)}/side`);
+      if (!res.ok) return;
+      const d = (await res.json()) as { messages?: AgentMessage[]; toolMode?: SideChatToolMode };
+      if (d.messages) setMessages(d.messages);
+      if (d.toolMode) setToolModeState(d.toolMode);
+    } catch {
+      // ignore — the SSE stream keeps the UI live
+    }
+  }, [mainSessionId]);
+
   // Connect the SSE stream whenever the main session changes.
   useEffect(() => {
     if (!mainSessionId) {
       setReady(false);
       readyRef.current = false;
       setMessages([]);
+      setStreamingMessage(null);
       return;
     }
     setReady(false);
@@ -81,16 +99,21 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
         case "connected": {
           setMessages((data.messages as AgentMessage[]) ?? []);
           setToolModeState((data.toolMode as SideChatToolMode) ?? "readOnly");
+          setStreamingMessage(null);
           setReady(true);
           readyRef.current = true;
           setError(null);
           break;
         }
+        case "message_start":
         case "message_update": {
-          const ame = data.assistantMessageEvent as { type?: string; delta?: string } | undefined;
-          if (ame?.type === "text_delta") {
+          // Mirror the main chat: stream from the partial assistant `message`, not
+          // from assistantMessageEvent deltas. Ignore user-role streaming messages
+          // (the user message is shown optimistically on send).
+          const msg = data.message as AgentMessage | undefined;
+          if (msg && (msg as { role?: string }).role !== "user") {
             setIsStreaming(true);
-            setStreamingText((s) => s + (ame.delta ?? ""));
+            setStreamingMessage(msg);
           }
           break;
         }
@@ -104,10 +127,10 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
           break;
         }
         case "agent_end": {
-          setMessages((data.messages as AgentMessage[]) ?? []);
-          setStreamingText("");
+          setStreamingMessage(null);
           setIsStreaming(false);
           setToolStatus("");
+          void refreshMessages();
           break;
         }
         default:
@@ -124,13 +147,21 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
       es.close();
       esRef.current = null;
     };
-  }, [mainSessionId]);
+  }, [mainSessionId, refreshMessages]);
 
   const send = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
       if (!trimmed || !mainSessionId) return;
       setError(null);
+      // Show the user's message immediately, like the main chat.
+      const optimistic: AgentMessage = {
+        role: "user",
+        content: [{ type: "text", text: trimmed }],
+      } as AgentMessage;
+      setMessages((prev) => [...prev, optimistic]);
+      setStreamingMessage(null);
+      setIsStreaming(true);
       const res = await post("prompt", { text: trimmed });
       await applyErrorFromResponse(res);
     },
@@ -147,7 +178,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
     const json = (await res?.json().catch(() => ({}))) as { messages?: AgentMessage[]; toolMode?: SideChatToolMode };
     if (json.messages) setMessages(json.messages);
     if (json.toolMode) setToolModeState(json.toolMode);
-    setStreamingText("");
+    setStreamingMessage(null);
     setIsStreaming(false);
   }, [post, applyErrorFromResponse]);
 
@@ -157,7 +188,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
     const json = (await res?.json().catch(() => ({}))) as { messages?: AgentMessage[]; toolMode?: SideChatToolMode };
     if (json.messages) setMessages(json.messages);
     if (json.toolMode) setToolModeState(json.toolMode);
-    setStreamingText("");
+    setStreamingMessage(null);
     setIsStreaming(false);
   }, [post, applyErrorFromResponse]);
 
@@ -173,7 +204,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
 
   return {
     messages,
-    streamingText,
+    streamingMessage,
     toolStatus,
     isStreaming,
     toolMode,
