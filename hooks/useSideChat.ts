@@ -30,6 +30,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
   const [error, setError] = useState<SideChatErrorKind>(null);
   const [ready, setReady] = useState(false);
   const esRef = useRef<EventSource | null>(null);
+  const readyRef = useRef(false);
 
   const post = useCallback(
     async (action: string, payload: Record<string, unknown> = {}) => {
@@ -56,10 +57,12 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
   useEffect(() => {
     if (!mainSessionId) {
       setReady(false);
+      readyRef.current = false;
       setMessages([]);
       return;
     }
     setReady(false);
+    readyRef.current = false;
     setError(null);
     let closed = false;
 
@@ -79,6 +82,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
           setMessages((data.messages as AgentMessage[]) ?? []);
           setToolModeState((data.toolMode as SideChatToolMode) ?? "readOnly");
           setReady(true);
+          readyRef.current = true;
           setError(null);
           break;
         }
@@ -112,7 +116,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
     };
 
     es.onerror = () => {
-      if (!closed && !ready) setError("network");
+      if (!closed && !readyRef.current) setError("network");
     };
 
     return () => {
@@ -120,7 +124,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
       es.close();
       esRef.current = null;
     };
-  }, [mainSessionId, ready]);
+  }, [mainSessionId]);
 
   const send = useCallback(
     async (text: string) => {
