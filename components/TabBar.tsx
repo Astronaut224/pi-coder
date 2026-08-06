@@ -7,7 +7,9 @@ import { useI18n } from "@/hooks/useI18n";
 export interface Tab {
   id: string;
   label: string;
-  filePath: string;
+  filePath?: string;
+  kind?: "file" | "chat";
+  mainSessionId?: string | null;
   sourceSessionId?: string | null;
   initialDisplayMode?: "source" | "preview" | "diff";
 }
@@ -70,7 +72,13 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
             }}
           >
             <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.7, display: "flex", alignItems: "center" }}>
-              {getFileIcon(tab.label, 13)}
+              {tab.kind === "chat" ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+              ) : (
+                getFileIcon(tab.label, 13)
+              )}
             </span>
             <span
               style={{
@@ -79,7 +87,7 @@ export function TabBar({ tabs, activeTabId, onSelectTab, onCloseTab }: Props) {
                 flex: 1,
                 fontWeight: isActive ? 500 : 400,
               }}
-              title={tab.filePath}
+              title={tab.kind === "chat" ? tab.label : tab.filePath}
             >
               {tab.label}
             </span>
