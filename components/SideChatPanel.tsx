@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
 import type { AgentMessage } from "@/lib/types";
+import { normalizeToolCalls } from "@/lib/normalize";
 import { MessageView } from "./MessageView";
 import { useSideChat } from "@/hooks/useSideChat";
 import { useI18n } from "@/hooks/useI18n";
@@ -90,10 +91,10 @@ export function SideChatPanel({ mainSessionId }: Props) {
           </div>
         )}
         {sc.messages.map((m, i) => (
-          <MessageView key={`m-${i}`} message={m as unknown as AgentMessage} />
+          <MessageView key={`m-${i}`} message={normalizeToolCalls(m as unknown as AgentMessage)} />
         ))}
         {sc.streamingMessage && (
-          <MessageView key="streaming" message={sc.streamingMessage as unknown as AgentMessage} isStreaming />
+          <MessageView key="streaming" message={normalizeToolCalls(sc.streamingMessage as unknown as AgentMessage)} isStreaming />
         )}
         {showPhase && (
           <div style={{ alignSelf: "flex-start", padding: "6px 2px", fontSize: 13, color: "var(--text-muted)" }}>
