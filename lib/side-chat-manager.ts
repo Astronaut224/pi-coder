@@ -1,5 +1,6 @@
 import { Agent, type AgentEvent, type AgentMessage } from "@earendil-works/pi-agent-core";
-import { getRpcSession, type AgentSessionWrapper } from "./rpc-manager";
+import { getRpcSession, startRpcSession, type AgentSessionWrapper } from "./rpc-manager";
+import { resolveSessionPath } from "./session-reader";
 import { buildSessionTitleAgentOptions } from "./session-title";
 import { SIDE_CHAT_PROMPT } from "./side-chat/prompt";
 import { buildSideChatTools, type SideChatToolContext, type SideChatToolMode } from "./side-chat/build-tools";
@@ -146,15 +147,21 @@ export class SideChatEntry {
 
 const entries = new Map<string, SideChatEntry>();
 
-function requireMain(mainSessionId: string): AgentSessionWrapper {
-  const wrapper = getRpcSession(mainSessionId);
-  if (!wrapper || !wrapper.isAlive()) {
+/**
+ * Ensure the main session exists and is alive, lazy-starting it the same way the
+ * main /events route does. Deliberately does NOT block on the main session being
+ * busy — the side chat is meant to run in parallel with the main agent, so it
+ * must be openable/forkable while the main is streaming.
+ */
+async function ensureMainSession(mainSessionId: string): Promise<AgentSessionWrapper> {
+  const existing = getRpcSession(mainSessionId);
+  if (existing?.isAlive()) return existing;
+  const filePath = await resolveSessionPath(mainSessionId);
+  if (!filePath) {
     throw new SideChatError("no-main-session", "Main session not found");
   }
-  if (wrapper.isRunning()) {
-    throw new SideChatError("main-busy", "Main session is busy");
-  }
-  return wrapper;
+  const { session } = await startRpcSession(mainSessionId, filePath, undefined);
+  return session;
 }
 
 function disposeSideChat(mainSessionId: string): void {
@@ -168,27 +175,30 @@ export function getSideChat(mainSessionId: string): SideChatEntry | undefined {
   return entries.get(mainSessionId);
 }
 
-export function openSideChat(mainSessionId: string): SideChatEntry {
+export async function openSideChat(mainSessionId: string): Promise<SideChatEntry> {
   const existing = entries.get(mainSessionId);
   if (existing) return existing;
-  const wrapper = requireMain(mainSessionId);
+  const wrapper = await ensureMainSession(mainSessionId);
   const entry = new SideChatEntry(mainSessionId, wrapper);
   entries.set(mainSessionId, entry);
   return entry;
 }
 
-export function reforkSideChat(mainSessionId: string): SideChatEntry {
+export async function reforkSideChat(mainSessionId: string): Promise<SideChatEntry> {
   const existing = entries.get(mainSessionId);
   if (!existing) return openSideChat(mainSessionId);
-  requireMain(mainSessionId); // throws (main-busy/no-main) BEFORE mutating -> existing entry stays intact
+  // Ensure the main session is still around, but do NOT require it to be idle —
+  // reforking snapshots completed messages (the in-flight partial lives in
+  // streamingMessage, not state.messages) and the side agent then runs in parallel.
+  await ensureMainSession(mainSessionId);
   existing.reforkInPlace();
   return existing;
 }
 
-export function clearSideChat(mainSessionId: string): SideChatEntry {
+export async function clearSideChat(mainSessionId: string): Promise<SideChatEntry> {
   const existing = entries.get(mainSessionId);
   if (!existing) return openSideChat(mainSessionId);
-  requireMain(mainSessionId);
+  await ensureMainSession(mainSessionId);
   existing.clearInPlace();
   return existing;
 }

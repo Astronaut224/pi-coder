@@ -12,7 +12,7 @@ export async function GET(
   let entry = getSideChat(id);
   if (!entry) {
     try {
-      entry = openSideChat(id);
+      entry = await openSideChat(id);
     } catch (error) {
       const code = error instanceof SideChatError ? error.code : "error";
       const status = code === "no-main-session" ? 404 : 409;

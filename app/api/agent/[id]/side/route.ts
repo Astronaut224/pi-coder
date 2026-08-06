@@ -29,7 +29,7 @@ export async function POST(
 
   try {
     if (body.action === "open") {
-      const entry = openSideChat(id);
+      const entry = await openSideChat(id);
       return NextResponse.json({ ok: true, toolMode: entry.toolMode, messages: entry.getMessages() });
     }
 
@@ -53,11 +53,11 @@ export async function POST(
         return NextResponse.json({ ok: true, toolMode: entry.toolMode });
       }
       case "refork": {
-        const e = reforkSideChat(id);
+        const e = await reforkSideChat(id);
         return NextResponse.json({ ok: true, toolMode: e.toolMode, messages: e.getMessages() });
       }
       case "clear": {
-        const e = clearSideChat(id);
+        const e = await clearSideChat(id);
         return NextResponse.json({ ok: true, toolMode: e.toolMode, messages: e.getMessages() });
       }
       default:
