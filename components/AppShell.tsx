@@ -6,6 +6,7 @@ import { useGlobalKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { SessionSidebar } from "./SessionSidebar";
 import { ChatWindow } from "./ChatWindow";
 import { FileViewer } from "./FileViewer";
+import { SideChatPanel } from "./SideChatPanel";
 import { TabBar, type Tab } from "./TabBar";
 import { ModelsConfig } from "./ModelsConfig";
 import { SkillsConfig } from "./SkillsConfig";
@@ -568,6 +569,22 @@ export function AppShell() {
   const handleOpenLinkedFile = useCallback((filePath: string) => {
     handleOpenFile(filePath, getFileName(filePath), { sourceSessionId: selectedSession?.id ?? null });
   }, [handleOpenFile, selectedSession?.id]);
+
+  const handleOpenSideChat = useCallback(() => {
+    const mainSessionId = selectedSession?.id ?? null;
+    const tabId = "side-chat";
+    setFileTabs((prev) => {
+      const existing = prev.find((t) => t.id === tabId);
+      if (!existing) {
+        return [...prev, { id: tabId, label: translate("sideChat.tab"), kind: "chat" as const, mainSessionId }];
+      }
+      if (existing.mainSessionId === mainSessionId) return prev;
+      return prev.map((t) => (t.id === tabId ? { ...t, mainSessionId } : t));
+    });
+    setActiveFileTabId(tabId);
+    setRightPanelOpen(true);
+    if (isMobile) setSidebarOpen(false);
+  }, [selectedSession?.id, isMobile, translate]);
 
   const handleCloseFileTab = useCallback((tabId: string) => {
     setFileTabs((prev) => {
@@ -1667,12 +1684,30 @@ export function AppShell() {
               onCloseTab={handleCloseFileTab}
             />
           </div>
+          <button
+            onClick={handleOpenSideChat}
+            title={translate("sideChat.open")}
+            aria-label={translate("sideChat.open")}
+            style={{
+              flexShrink: 0, width: 36, height: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+              background: "transparent", border: "none", borderLeft: "1px solid var(--border)",
+              color: "var(--text-muted)", cursor: "pointer",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--accent)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
 
         </div>
 
         {/* File content */}
         <div style={{ flex: 1, overflow: "hidden", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {activeFileTab?.filePath ? (
+          {activeFileTab?.kind === "chat" ? (
+            <SideChatPanel mainSessionId={activeFileTab.mainSessionId ?? null} />
+          ) : activeFileTab?.filePath ? (
             <FileViewer
               filePath={activeFileTab.filePath}
               cwd={activeCwd ?? undefined}
@@ -1687,8 +1722,26 @@ export function AppShell() {
               )}
             />
           ) : (
-            <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-dim)", fontSize: 12 }}>
-               {translate("files.noneOpen")}
+            <div style={{ height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16, padding: 24 }}>
+              <button
+                onClick={handleOpenSideChat}
+                style={{
+                  border: "1px solid var(--accent)", borderRadius: 10, cursor: "pointer",
+                  padding: "14px 28px", fontSize: 15, fontWeight: 600,
+                  background: "var(--accent-soft)", color: "var(--accent)",
+                  transition: "background 0.12s, color 0.12s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--accent)"; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--accent-soft)"; e.currentTarget.style.color = "var(--accent)"; }}
+              >
+                {translate("sideChat.button")}
+              </button>
+              <div style={{ color: "var(--text-dim)", fontSize: 12, textAlign: "center", maxWidth: 280, lineHeight: 1.6 }}>
+                {translate("sideChat.subtitle")}
+              </div>
+              <div style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 8 }}>
+                {translate("files.noneOpen")}
+              </div>
             </div>
           )}
         </div>
