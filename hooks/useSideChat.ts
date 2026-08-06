@@ -119,7 +119,7 @@ export function useSideChat(mainSessionId: string | null): UseSideChatResult {
         }
         case "tool_execution_start": {
           setIsStreaming(true);
-          setToolStatus(`Running ${data.toolName as string}…`);
+          setToolStatus(typeof data.toolName === "string" ? data.toolName : "");
           break;
         }
         case "tool_execution_end": {

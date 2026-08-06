@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
-import { MarkdownBody } from "./MarkdownBody";
+import type { AgentMessage } from "@/lib/types";
+import { MessageView } from "./MessageView";
 import { useSideChat } from "@/hooks/useSideChat";
 import { useI18n } from "@/hooks/useI18n";
 
@@ -36,6 +36,14 @@ export function SideChatPanel({ mainSessionId }: Props) {
     : sc.error === "network" ? t("sideChat.network")
     : null;
 
+  // While the agent is active but no assistant bubble is streaming yet (or a tool
+  // is running), show a pulsing status line so it's clear the model is working —
+  // matches the main chat's phase label.
+  const phaseLabel = sc.toolStatus
+    ? t("chat.runningNamedTool", { name: sc.toolStatus })
+    : t("chat.thinking");
+  const showPhase = sc.isStreaming && (!sc.streamingMessage || Boolean(sc.toolStatus));
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--bg)" }}>
       {/* Toolbar */}
@@ -62,11 +70,6 @@ export function SideChatPanel({ mainSessionId }: Props) {
             {t("sideChat.stop")}
           </button>
         )}
-        {sc.toolStatus && (
-          <span style={{ marginLeft: "auto", color: "var(--text-dim)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-            {sc.toolStatus}
-          </span>
-        )}
       </div>
       {sc.toolMode === "edit" && (
         <div style={{ padding: "4px 10px", fontSize: 11, color: "var(--text-dim)", background: "var(--accent-soft)", borderBottom: "1px solid var(--border)" }}>
@@ -87,10 +90,15 @@ export function SideChatPanel({ mainSessionId }: Props) {
           </div>
         )}
         {sc.messages.map((m, i) => (
-          <MessageBubble key={i} message={m} />
+          <MessageView key={`m-${i}`} message={m as unknown as AgentMessage} />
         ))}
         {sc.streamingMessage && (
-          <MessageBubble message={sc.streamingMessage} streaming />
+          <MessageView key="streaming" message={sc.streamingMessage as unknown as AgentMessage} isStreaming />
+        )}
+        {showPhase && (
+          <div style={{ alignSelf: "flex-start", padding: "6px 2px", fontSize: 13, color: "var(--text-muted)" }}>
+            <span className="animate-[pulse_1.5s_infinite]">{phaseLabel}</span>
+          </div>
         )}
       </div>
 
@@ -138,59 +146,4 @@ function toolbarButtonStyle(active: boolean): CSSProperties {
     background: active ? "var(--accent-soft)" : "var(--bg)",
     color: active ? "var(--accent)" : "var(--text-muted)",
   };
-}
-
-function MessageBubble({ message, streaming }: { message: AgentMessage; streaming?: boolean }) {
-  const m = message as {
-    role?: string;
-    content?: string | Array<{ type: string; text?: string; toolName?: string }>;
-    toolName?: string;
-  };
-
-  if (m.role === "user") {
-    const text = typeof m.content === "string"
-      ? m.content
-      : (Array.isArray(m.content) ? m.content : [])
-          .filter((b) => b.type === "text")
-          .map((b) => b.text ?? "")
-          .join("\n");
-    return (
-      <div style={{ alignSelf: "flex-end", maxWidth: "85%", background: "var(--user-bg)", border: "1px solid var(--border)", borderRadius: 10, padding: "8px 12px" }}>
-        <div style={{ whiteSpace: "pre-wrap", fontSize: 13, color: "var(--text)" }}>{text}</div>
-      </div>
-    );
-  }
-
-  if (m.role === "assistant") {
-    const blocks = Array.isArray(m.content) ? m.content : [];
-    const text = blocks.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n");
-    const tools = blocks.filter((b) => b.type === "toolCall").map((b) => b.toolName ?? "tool");
-    return (
-      <div style={{ alignSelf: "flex-start", maxWidth: "100%", color: "var(--text)" }}>
-        {text && <MarkdownBody isStreaming={streaming}>{text}</MarkdownBody>}
-        {tools.length > 0 && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 4 }}>
-            {tools.map((name, i) => (
-              <span key={i} style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, background: "var(--bg-panel)", border: "1px solid var(--border)", color: "var(--text-muted)" }}>
-                {name}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (m.role === "toolResult") {
-    const first = (Array.isArray(m.content) ? m.content : [])[0];
-    const preview = first?.type === "text" ? (first.text ?? "") : "";
-    return (
-      <div style={{ alignSelf: "flex-start", maxWidth: "85%", fontSize: 11, color: "var(--text-dim)", background: "var(--bg-panel)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 8px" }}>
-        <span style={{ color: "var(--text-muted)" }}>{m.toolName ?? "tool"}:</span>{" "}
-        <span style={{ whiteSpace: "pre-wrap" }}>{preview.slice(0, 200)}{preview.length > 200 ? "…" : ""}</span>
-      </div>
-    );
-  }
-
-  return null;
 }
