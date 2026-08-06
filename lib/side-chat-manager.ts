@@ -18,10 +18,10 @@ export class SideChatError extends Error {
 }
 
 export class SideChatEntry {
-  readonly agent: Agent;
+  agent: Agent;
   readonly mainAgent: Agent;
   readonly cwd: string;
-  readonly forkMessageCount: number;
+  forkMessageCount: number;
   readonly fileTracker = new FileActivityTracker();
   toolMode: SideChatToolMode = "readOnly";
 
@@ -38,14 +38,7 @@ export class SideChatEntry {
     this.cwd = wrapper.cwd;
     this.forkMessageCount = this.mainAgent.state.messages.length;
 
-    const options = buildSessionTitleAgentOptions(this.mainAgent);
-    options.initialState!.systemPrompt = this.mainAgent.state.systemPrompt + SIDE_CHAT_PROMPT;
-    options.initialState!.messages = initialMessages
-      ?? (structuredClone(this.mainAgent.state.messages) as AgentMessage[]);
-    options.initialState!.tools = buildSideChatTools("readOnly", this.toolContext());
-
-    this.agent = new Agent(options);
-    this.agent.subscribe((event) => this.emit(event));
+    this.agent = this.buildAgent(initialMessages);
 
     // Track the main agent's file writes so edit-mode overlap detection works.
     this.unsubscribeMain = wrapper.onEvent((event) => {
@@ -61,6 +54,17 @@ export class SideChatEntry {
     });
 
     this.resetIdleTimer();
+  }
+
+  private buildAgent(initialMessages?: AgentMessage[]): Agent {
+    const options = buildSessionTitleAgentOptions(this.mainAgent);
+    options.initialState!.systemPrompt = this.mainAgent.state.systemPrompt + SIDE_CHAT_PROMPT;
+    options.initialState!.messages = initialMessages
+      ?? (structuredClone(this.mainAgent.state.messages) as AgentMessage[]);
+    options.initialState!.tools = buildSideChatTools("readOnly", this.toolContext());
+    const agent = new Agent(options);
+    agent.subscribe((event) => this.emit(event));
+    return agent;
   }
 
   private toolContext(): SideChatToolContext {
@@ -86,6 +90,7 @@ export class SideChatEntry {
   }
 
   prompt(text: string): Promise<void> {
+    this.resetIdleTimer();
     return this.agent.prompt(text);
   }
 
@@ -96,6 +101,32 @@ export class SideChatEntry {
   setToolMode(mode: SideChatToolMode): void {
     this.toolMode = mode;
     this.agent.state.tools = buildSideChatTools(mode, this.toolContext());
+  }
+
+  /**
+   * Re-fork from the main session in place: rebuilds this.agent with a fresh
+   * clone of the main messages, updates the fork point, resets tool mode.
+   * Preserves `this.listeners` so live SSE subscriptions keep working.
+   * Caller MUST have verified the main session via requireMain first.
+   */
+  reforkInPlace(): void {
+    this.forkMessageCount = this.mainAgent.state.messages.length;
+    this.agent.abort();
+    this.agent = this.buildAgent();
+    this.toolMode = "readOnly";
+    this.resetIdleTimer();
+  }
+
+  /**
+   * Reset the side chat to empty in place (keeps listeners). Caller MUST have
+   * verified the main session via requireMain first.
+   */
+  clearInPlace(): void {
+    this.forkMessageCount = this.mainAgent.state.messages.length;
+    this.agent.abort();
+    this.agent = this.buildAgent([]);
+    this.toolMode = "readOnly";
+    this.resetIdleTimer();
   }
 
   resetIdleTimer(): void {
@@ -147,17 +178,17 @@ export function openSideChat(mainSessionId: string): SideChatEntry {
 }
 
 export function reforkSideChat(mainSessionId: string): SideChatEntry {
-  disposeSideChat(mainSessionId);
-  const wrapper = requireMain(mainSessionId);
-  const entry = new SideChatEntry(mainSessionId, wrapper);
-  entries.set(mainSessionId, entry);
-  return entry;
+  const existing = entries.get(mainSessionId);
+  if (!existing) return openSideChat(mainSessionId);
+  requireMain(mainSessionId); // throws (main-busy/no-main) BEFORE mutating -> existing entry stays intact
+  existing.reforkInPlace();
+  return existing;
 }
 
 export function clearSideChat(mainSessionId: string): SideChatEntry {
-  disposeSideChat(mainSessionId);
-  const wrapper = requireMain(mainSessionId);
-  const entry = new SideChatEntry(mainSessionId, wrapper, []);
-  entries.set(mainSessionId, entry);
-  return entry;
+  const existing = entries.get(mainSessionId);
+  if (!existing) return openSideChat(mainSessionId);
+  requireMain(mainSessionId);
+  existing.clearInPlace();
+  return existing;
 }

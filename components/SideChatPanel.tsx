@@ -33,7 +33,7 @@ export function SideChatPanel({ mainSessionId }: Props) {
   const errorText =
     sc.error === "no-main-session" ? t("sideChat.noMainSession")
     : sc.error === "main-busy" ? t("sideChat.mainBusy")
-    : sc.error === "network" ? t("sideChat.mainBusy")
+    : sc.error === "network" ? t("sideChat.network")
     : null;
 
   return (

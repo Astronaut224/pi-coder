@@ -86,6 +86,7 @@ export const enLocale: LocalePlugin = {
     "sideChat.placeholder": "Ask anything…",
     "sideChat.noMainSession": "Main session not ready. Send a message in the main chat first.",
     "sideChat.mainBusy": "Main session is responding. Try again shortly.",
+    "sideChat.network": "Connection lost. Reconnecting…",
     "sideChat.editWarning": "Edit mode: side-chat changes write to disk (shared workspace with main).",
     "layout.resizeSidebar": "Resize sidebar",
     "layout.resizeFilePanel": "Resize file panel",
