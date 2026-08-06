@@ -87,6 +87,7 @@ export const zhCNLocale: LocalePlugin = {
     "sideChat.noMainSession": "主会话尚未就绪，请先在主聊天发送一条消息。",
     "sideChat.mainBusy": "主会话正在响应，请稍后再试。",
     "sideChat.network": "连接已断开，正在重连…",
+    "sideChat.expired": "此副聊天因长时间未操作已被清理。点击「重新 Fork」可从主会话重新拉取一份。",
     "sideChat.editWarning": "编辑模式：副聊天的改动会写入磁盘（与主会话共享工作区）。",
     "layout.resizeSidebar": "调整侧边栏宽度",
     "layout.resizeFilePanel": "调整文件面板宽度",

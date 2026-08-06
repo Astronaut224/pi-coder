@@ -33,6 +33,19 @@ export async function POST(
       return NextResponse.json({ ok: true, toolMode: entry.toolMode, messages: entry.getMessages() });
     }
 
+    // refork/clear re-create the entry if it was idle-reaped (expired), so they
+    // must NOT be blocked by the not-open check below — they are the recovery path.
+    if (body.action === "refork") {
+      const e = await reforkSideChat(id);
+      return NextResponse.json({ ok: true, toolMode: e.toolMode, messages: e.getMessages() });
+    }
+    if (body.action === "clear") {
+      const e = await clearSideChat(id);
+      return NextResponse.json({ ok: true, toolMode: e.toolMode, messages: e.getMessages() });
+    }
+
+    // prompt / abort / setToolMode require an existing entry; if it expired, the
+    // client surfaces an "expired" state prompting the user to re-fork.
     const entry = getSideChat(id);
     if (!entry) return NextResponse.json({ error: "not-open" }, { status: 404 });
 
@@ -51,14 +64,6 @@ export async function POST(
       case "setToolMode": {
         if (body.toolMode) entry.setToolMode(body.toolMode);
         return NextResponse.json({ ok: true, toolMode: entry.toolMode });
-      }
-      case "refork": {
-        const e = await reforkSideChat(id);
-        return NextResponse.json({ ok: true, toolMode: e.toolMode, messages: e.getMessages() });
-      }
-      case "clear": {
-        const e = await clearSideChat(id);
-        return NextResponse.json({ ok: true, toolMode: e.toolMode, messages: e.getMessages() });
       }
       default:
         return NextResponse.json({ error: "unknown-action" }, { status: 400 });

@@ -92,6 +92,12 @@ export function SideChatPanel({ mainSessionId }: Props) {
             {errorText}
           </div>
         )}
+        {sc.expired && (
+          <div style={{ alignSelf: "stretch", padding: "12px", background: "var(--accent-soft)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+            <div style={{ marginBottom: 8 }}>{t("sideChat.expired")}</div>
+            <button onClick={() => void sc.refork()} style={toolbarButtonStyle(true)}>{t("sideChat.refork")}</button>
+          </div>
+        )}
         {renderTurns(messages, t)}
         {sc.streamingMessage && (
           <MessageView
@@ -129,7 +135,7 @@ export function SideChatPanel({ mainSessionId }: Props) {
           />
           <button
             type="submit"
-            disabled={!input.trim() || sc.isStreaming}
+            disabled={!input.trim() || sc.isStreaming || sc.expired}
             style={{
               height: 38, padding: "0 14px", border: "none", borderRadius: 6, cursor: "pointer",
               background: "var(--accent)", color: "#fff", fontWeight: 500, fontSize: 13,
