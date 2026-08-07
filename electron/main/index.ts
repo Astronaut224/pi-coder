@@ -18,6 +18,7 @@ let stopping = false;
 
 app.whenReady().then(async () => {
   nativeTheme.themeSource = "system";
+  process.env.PI_WEB_DESKTOP_VERSION = app.getVersion();
   registerIpc();
 
   // 跨平台应用菜单:承载"开机自动启动"开关与"退出"项(mac 也需要应用菜单)

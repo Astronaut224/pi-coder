@@ -44,6 +44,7 @@ next-env.d.ts
 # electron desktop build output
 dist-electron/
 resources/server/
+release/
 
 # fake home dir used by build:web (USERPROFILE workaround)
 .superpowers/sdd/fakehome/
