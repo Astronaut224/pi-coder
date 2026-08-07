@@ -801,8 +801,12 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const handleCustomPathClick = useCallback(async () => {
     // 桌面端:用原生 OS 目录选择框替代网页 modal
     if (typeof window !== "undefined" && window.piDesktop) {
-      const dir = await window.piDesktop.selectDirectory();
-      if (dir) void commitCustomPath(dir);   // 复用 commitCustomPath 走 /api/cwd/validate
+      try {
+        const dir = await window.piDesktop.selectDirectory();
+        if (dir) void commitCustomPath(dir);   // 复用 commitCustomPath 走 /api/cwd/validate
+      } catch (err) {
+        console.warn("[pi-desktop] selectDirectory failed", err);
+      }
       return;
     }
     setCustomPathOpen(true);
