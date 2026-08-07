@@ -17,6 +17,7 @@
   "bin": {
     "pi-web": "bin/pi-web.js"
   },
+  "main": "dist-electron/main/index.js",
   "files": [
     "bin",
     ".next",
@@ -35,13 +36,21 @@
     "start:lan": "next start -H 0.0.0.0 -p 30141",
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test lib/markdown.test.mjs",
-    "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public"
+    "release": "npm version patch --no-git-tag-version && npm run build && npm publish --access public",
+    "dev:electron": "concurrently -k -n next,electron -c cyan,magenta \"next dev -H 127.0.0.1 -p 30141\" \"wait-on http://127.0.0.1:30141 && electron .\"",
+    "build:web": "node scripts/build-web.mjs",
+    "build:electron-main": "tsc -p electron/tsconfig.json",
+    "build:desktop": "npm run build:web && npm run build:electron-main && npm run assemble:server && electron-builder",
+    "assemble:server": "node --experimental-strip-types scripts/build-electron.ts",
+    "lint:electron": "eslint electron --ext .ts,.tsx"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.0",
     "@earendil-works/pi-ai": "0.84.0",
     "@earendil-works/pi-coding-agent": "0.84.0",
     "@earendil-works/pi-tui": "0.84.0",
+    "electron-store": "^10.1.0",
+    "electron-updater": "^6.8.9",
     "next": "16.2.12",
     "proper-lockfile": "4.1.2",
     "react": "^19.2.4",
@@ -56,6 +65,9 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "concurrently": "^9.2.4",
+    "electron": "^43.3.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.2.12",
     "jiti": "^2.7.0",
@@ -71,6 +83,7 @@
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^8.0.5"
   }
 }

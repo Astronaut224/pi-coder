@@ -40,3 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .factory
+
+# electron desktop build output
+dist-electron/
+resources/server/
+
+# fake home dir used by build:web (USERPROFILE workaround)
+.superpowers/sdd/fakehome/
