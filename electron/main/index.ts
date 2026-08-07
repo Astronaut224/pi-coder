@@ -1,8 +1,15 @@
-import { app, Menu } from "electron";
+import { app, Menu, type Menu as MenuType, type MenuItemConstructorOptions } from "electron";
 import { ServerManager } from "./server-manager";
 import { registerIpc } from "./ipc";
 import { createMainWindow, loadMainWindowUrl } from "./window";
 import { createTray, attachHideOnClose, markQuitting } from "./tray";
+import {
+  registerGlobalShortcut,
+  unregisterGlobalShortcut,
+  initLoginItem,
+  setOpenAtLogin,
+  isOpenAtLogin,
+} from "./shortcuts";
 
 const isDev = process.env.PI_WEB_DESKTOP_MODE === "dev";
 
@@ -12,17 +19,8 @@ let stopping = false;
 app.whenReady().then(async () => {
   registerIpc();
 
-  // 基础菜单(mac 需要应用菜单才能正常)
-  if (process.platform === "darwin") {
-    Menu.setApplicationMenu(
-      Menu.buildFromTemplate([
-        { role: "appMenu" },
-        { role: "editMenu" },
-        { role: "viewMenu" },
-        { role: "windowMenu" },
-      ]),
-    );
-  }
+  // 跨平台应用菜单:承载"开机自动启动"开关与"退出"项(mac 也需要应用菜单)
+  Menu.setApplicationMenu(buildAppMenu());
 
   server = new ServerManager({
     mode: isDev ? "dev" : "standalone",
@@ -39,11 +37,42 @@ app.whenReady().then(async () => {
     await loadMainWindowUrl(url);
     createTray(server);
     attachHideOnClose(win);
+    initLoginItem();
+    registerGlobalShortcut();
   } catch (err) {
     console.error("[desktop] failed to start server:", err);
     app.quit();
   }
 });
+
+function buildAppMenu(): MenuType {
+  const isMac = process.platform === "darwin";
+  const template: MenuItemConstructorOptions[] = [
+    ...(isMac ? [{ role: "appMenu" } as MenuItemConstructorOptions] : []),
+    { role: "editMenu" },
+    { role: "viewMenu" },
+    {
+      label: "窗口",
+      submenu: [
+        { role: "minimize" },
+        {
+          label: "开机自动启动",
+          type: "checkbox",
+          checked: isOpenAtLogin(),
+          click: (item) => setOpenAtLogin(item.checked),
+        },
+        { type: "separator" },
+        {
+          label: "退出",
+          // before-quit owns server.stop(); just trigger a normal quit.
+          click: () => app.quit(),
+        },
+      ],
+    },
+    { role: "help" },
+  ];
+  return Menu.buildFromTemplate(template);
+}
 
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
@@ -62,4 +91,8 @@ app.on("before-quit", async (e) => {
     server = null;
     app.quit(); // re-fire; 2nd before-quit hits the guard and returns
   }
+});
+
+app.on("will-quit", () => {
+  unregisterGlobalShortcut();
 });
