@@ -61,6 +61,15 @@ export function useAudio() {
   }, [unlockAudio]);
 
   const playDone = useCallback(() => {
+    // 桌面端:任务完成时发系统通知(窗口隐藏到托盘时也能感知)
+    const desktop = typeof window !== "undefined" ? window.piDesktop : undefined;
+    if (desktop) {
+      try {
+        new Notification("pi-web", { body: "任务已完成" });
+      } catch {
+        /* Notification 不可用时忽略 */
+      }
+    }
     if (!enabledRef.current) return;
     const ctx = getCtx();
     if (!ctx) return;

@@ -798,11 +798,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     }
   }, [customPathValue, customPathValidating]);
 
-  const handleCustomPathClick = useCallback(() => {
+  const handleCustomPathClick = useCallback(async () => {
+    // 桌面端:用原生 OS 目录选择框替代网页 modal
+    if (typeof window !== "undefined" && window.piDesktop) {
+      const dir = await window.piDesktop.selectDirectory();
+      if (dir) void commitCustomPath(dir);   // 复用 commitCustomPath 走 /api/cwd/validate
+      return;
+    }
     setCustomPathOpen(true);
     setCustomPathError(null);
     setDropdownOpen(false);
-  }, []);
+  }, [commitCustomPath]);
   const handleDefaultCwd = useCallback(async () => {
     try {
       const res = await fetch("/api/default-cwd", { method: "POST" });
