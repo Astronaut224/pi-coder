@@ -2,10 +2,12 @@ import { app, Menu } from "electron";
 import { ServerManager } from "./server-manager";
 import { registerIpc } from "./ipc";
 import { createMainWindow, loadMainWindowUrl } from "./window";
+import { createTray, attachHideOnClose, markQuitting } from "./tray";
 
 const isDev = process.env.PI_WEB_DESKTOP_MODE === "dev";
 
 let server: ServerManager | null = null;
+let stopping = false;
 
 app.whenReady().then(async () => {
   registerIpc();
@@ -35,11 +37,8 @@ app.whenReady().then(async () => {
     const { url } = await server.start();
     const win = createMainWindow();
     await loadMainWindowUrl(url);
-    // 临时:窗口关闭即退出(托盘逻辑在 Task 8 替换)
-    win.on("close", (e) => {
-      e.preventDefault();
-      app.quit();
-    });
+    createTray(server);
+    attachHideOnClose(win);
   } catch (err) {
     console.error("[desktop] failed to start server:", err);
     app.quit();
@@ -51,10 +50,16 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", async (e) => {
-  if (server) {
-    e.preventDefault();
+  markQuitting();
+  if (stopping || !server) return; // already handling, or nothing to stop → let default quit proceed
+  stopping = true;
+  e.preventDefault();
+  try {
     await server.stop();
+  } catch (err) {
+    console.error("[desktop] server.stop() failed during quit:", err);
+  } finally {
     server = null;
-    app.quit();
+    app.quit(); // re-fire; 2nd before-quit hits the guard and returns
   }
 });
