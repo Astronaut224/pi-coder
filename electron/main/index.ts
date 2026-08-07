@@ -1,7 +1,7 @@
 import { app, Menu, nativeTheme, shell, type Menu as MenuType, type MenuItemConstructorOptions } from "electron";
 import { ServerManager } from "./server-manager";
 import { registerIpc } from "./ipc";
-import { createMainWindow, loadMainWindowUrl } from "./window";
+import { createMainWindow, loadMainWindowUrl, getMainWindow } from "./window";
 import { createTray, attachHideOnClose, markQuitting } from "./tray";
 import {
   registerGlobalShortcut,
@@ -17,47 +17,61 @@ const isDev = process.env.PI_WEB_DESKTOP_MODE === "dev";
 let server: ServerManager | null = null;
 let stopping = false;
 
-app.whenReady().then(async () => {
-  nativeTheme.themeSource = "system";
-  process.env.PI_WEB_DESKTOP_VERSION = app.getVersion();
-  registerIpc();
-
-  // 跨平台应用菜单:承载"开机自动启动"开关与"退出"项(mac 也需要应用菜单)
-  Menu.setApplicationMenu(buildAppMenu());
-
-  server = new ServerManager({
-    mode: isDev ? "dev" : "standalone",
-    devUrl: "http://127.0.0.1:30141",
-    onLog: (line) => process.stdout.write(line),
-    onUnrecoverable: () => {
-      console.error("[desktop] server unrecoverable");
-    },
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    const win = getMainWindow();
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.show();
+      win.focus();
+    }
   });
 
-  try {
-    const { url } = await server.start();
-    const win = createMainWindow();
-    await loadMainWindowUrl(url);
-    createTray(server);
-    attachHideOnClose(win);
-    initLoginItem();
-    registerGlobalShortcut();
-    // Auto-update is a NON-CRITICAL feature: isolate init so an updater failure
-    // cannot abort app startup.
+  app.whenReady().then(async () => {
+    nativeTheme.themeSource = "system";
+    process.env.PI_WEB_DESKTOP_VERSION = app.getVersion();
+    registerIpc();
+
+    // 跨平台应用菜单:承载"开机自动启动"开关与"退出"项(mac 也需要应用菜单)
+    Menu.setApplicationMenu(buildAppMenu());
+
+    server = new ServerManager({
+      mode: isDev ? "dev" : "standalone",
+      devUrl: "http://127.0.0.1:30141",
+      onLog: (line) => process.stdout.write(line),
+      onUnrecoverable: () => {
+        console.error("[desktop] server unrecoverable");
+      },
+    });
+
     try {
-      initUpdater();
+      const { url } = await server.start();
+      const win = createMainWindow();
+      await loadMainWindowUrl(url);
+      createTray(server);
+      attachHideOnClose(win);
+      initLoginItem();
+      registerGlobalShortcut();
+      // Auto-update is a NON-CRITICAL feature: isolate init so an updater failure
+      // cannot abort app startup.
+      try {
+        initUpdater();
+      } catch (err) {
+        console.warn("[desktop] updater init failed", err);
+      }
+      // 启动 5 秒后检查更新(避开启动峰值),仅打包版生效
+      if (app.isPackaged) {
+        setTimeout(() => checkForUpdates(), 5000);
+      }
     } catch (err) {
-      console.warn("[desktop] updater init failed", err);
+      console.error("[desktop] failed to start server:", err);
+      app.quit();
     }
-    // 启动 5 秒后检查更新(避开启动峰值),仅打包版生效
-    if (app.isPackaged) {
-      setTimeout(() => checkForUpdates(), 5000);
-    }
-  } catch (err) {
-    console.error("[desktop] failed to start server:", err);
-    app.quit();
-  }
-});
+  });
+}
 
 function buildAppMenu(): MenuType {
   const isMac = process.platform === "darwin";
