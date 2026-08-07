@@ -51,7 +51,7 @@ if (!gotLock) {
       const { url } = await server.start();
       const win = createMainWindow();
       await loadMainWindowUrl(url);
-      createTray(server);
+      createTray();
       attachHideOnClose(win);
       initLoginItem();
       registerGlobalShortcut();
@@ -92,6 +92,7 @@ function buildAppMenu(): MenuType {
         { type: "separator" },
         {
           label: "退出",
+          accelerator: "CmdOrCtrl+Q",
           // before-quit owns server.stop(); just trigger a normal quit.
           click: () => app.quit(),
         },
@@ -103,7 +104,7 @@ function buildAppMenu(): MenuType {
         {
           label: "打开项目仓库",
           click: () => {
-            void shell.openExternal("https://github.com/agegr/pi-web");
+            void shell.openExternal("https://github.com/agegr/pi-web").catch(() => {});
           },
         },
         {

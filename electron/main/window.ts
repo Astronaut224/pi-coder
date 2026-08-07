@@ -40,17 +40,34 @@ export function createMainWindow(): BrowserWindow {
     },
   });
 
-  // 外链走系统浏览器
+  // 外链走系统浏览器(target=_blank / window.open)
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith("http://") || url.startsWith("https://")) {
-      void shell.openExternal(url);
+      void shell.openExternal(url).catch(() => {});
       return { action: "deny" };
     }
     return { action: "deny" };
   });
 
+  // 同窗口导航守卫:仅放行 127.0.0.1(本机 standalone server),其余外链
+  // (markdown 中的 <a href>、location 跳转等)交给系统浏览器,防止主窗口
+  // 被导航离开 127.0.0.1 后无法返回。
+  win.webContents.on("will-navigate", (e, url) => {
+    try {
+      if (new URL(url).hostname !== "127.0.0.1") {
+        e.preventDefault();
+        void shell.openExternal(url).catch(() => {});
+      }
+    } catch {
+      e.preventDefault();
+    }
+  });
+
   win.on("resize", () => persistBounds(win));
   win.on("move", () => persistBounds(win));
+  win.on("closed", () => {
+    mainWindow = null;
+  });
 
   win.once("ready-to-show", () => win.show());
 

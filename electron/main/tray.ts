@@ -1,6 +1,5 @@
 import path from "node:path";
 import { app, Tray, Menu, nativeImage, type BrowserWindow } from "electron";
-import type { ServerManager } from "./server-manager";
 import { getMainWindow } from "./window";
 
 // NOTE: tray-icon-template@2x.png is a PLACEHOLDER copied from pi-web's
@@ -18,11 +17,14 @@ export function markQuitting(): void {
   isQuitting = true;
 }
 
-export function createTray(_server: ServerManager): Tray {
+export function createTray(): Tray {
+  // Resolve via app.getAppPath(): in dev this is the project root, in a packaged
+  // app it is the asar root (where electron-builder packs electron/icons/*.png).
+  // __dirname (dist-electron/main) cannot be used — tsc copies no non-TS assets.
   const iconPath =
     process.platform === "darwin"
-      ? path.join(__dirname, "..", "icons", "tray-icon-template@2x.png")
-      : path.join(__dirname, "..", "icons", "tray.png");
+      ? path.join(app.getAppPath(), "electron", "icons", "tray-icon-template@2x.png")
+      : path.join(app.getAppPath(), "electron", "icons", "tray.png");
   const image = nativeImage.createFromPath(iconPath);
   if (process.platform === "darwin") image.setTemplateImage(true);
 
@@ -51,7 +53,11 @@ export function createTray(_server: ServerManager): Tray {
   tray.on("click", () => {
     const win = getMainWindow();
     if (!win) return;
-    win.isVisible() ? win.hide() : showMainWindow();
+    if (win.isVisible()) {
+      win.hide();
+    } else {
+      showMainWindow();
+    }
   });
 
   return tray;

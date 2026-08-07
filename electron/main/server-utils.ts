@@ -46,7 +46,6 @@ export function waitForReady(
   const host = opts.host ?? "127.0.0.1";
   const timeoutMs = opts.timeoutMs ?? 30000;
   const intervalMs = opts.intervalMs ?? 300;
-  const startedAt = Date.now();
 
   return new Promise((resolve, reject) => {
     const probe = () => {
