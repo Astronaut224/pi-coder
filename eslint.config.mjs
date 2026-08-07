@@ -4,7 +4,7 @@ import typescript from "eslint-config-next/typescript";
 const eslintConfig = [
   {
     // Build output and desktop-only trees are not part of the web lint surface.
-    ignores: ["dist-electron/**", ".next/**", "resources/**"],
+    ignores: ["dist-electron/**", ".next/**", "resources/**", "release/**"],
   },
   ...coreWebVitals,
   ...typescript,
