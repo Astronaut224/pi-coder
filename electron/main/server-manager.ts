@@ -52,7 +52,7 @@ export class ServerManager {
     const serverPath = this.resolveServerPath();
     this.child = fork(serverPath, [], {
       env: buildServerEnv(port),
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
     const log = (chunk: Buffer) => {
       const line = chunk.toString();
