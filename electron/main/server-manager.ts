@@ -1,5 +1,6 @@
 import { fork, type ChildProcess } from "node:child_process";
 import path from "node:path";
+import { existsSync } from "node:fs";
 import { app } from "electron";
 import {
   buildServerEnv,
@@ -50,8 +51,12 @@ export class ServerManager {
       throw new Error("server manager is stopping; aborting fork");
     }
     const serverPath = this.resolveServerPath();
+    // In the packaged app the server deps live in a "modules" dir (renamed at assemble
+    // time to dodge electron-builder's top-level node_modules exclusion). Point the
+    // forked Node process at it via NODE_PATH so bare requires (next, react, …) resolve.
+    const modulesDir = path.join(path.dirname(serverPath), "modules");
     this.child = fork(serverPath, [], {
-      env: buildServerEnv(port),
+      env: buildServerEnv(port, existsSync(modulesDir) ? { NODE_PATH: modulesDir } : {}),
       stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
     const log = (chunk: Buffer) => {
