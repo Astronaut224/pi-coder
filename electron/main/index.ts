@@ -1,4 +1,4 @@
-import { app, Menu, type Menu as MenuType, type MenuItemConstructorOptions } from "electron";
+import { app, Menu, nativeTheme, shell, type Menu as MenuType, type MenuItemConstructorOptions } from "electron";
 import { ServerManager } from "./server-manager";
 import { registerIpc } from "./ipc";
 import { createMainWindow, loadMainWindowUrl } from "./window";
@@ -17,6 +17,7 @@ let server: ServerManager | null = null;
 let stopping = false;
 
 app.whenReady().then(async () => {
+  nativeTheme.themeSource = "system";
   registerIpc();
 
   // 跨平台应用菜单:承载"开机自动启动"开关与"退出"项(mac 也需要应用菜单)
@@ -69,7 +70,21 @@ function buildAppMenu(): MenuType {
         },
       ],
     },
-    { role: "help" },
+    {
+      role: "help",
+      submenu: [
+        {
+          label: "打开项目仓库",
+          click: () => {
+            void shell.openExternal("https://github.com/agegr/pi-web");
+          },
+        },
+        {
+          label: "检查更新",
+          enabled: false, // wired in Task 13 (electron/main/updater.ts checkForUpdates)
+        },
+      ],
+    },
   ];
   return Menu.buildFromTemplate(template);
 }
