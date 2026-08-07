@@ -38,5 +38,19 @@ mac:
     - target: zip
       arch: [x64, arm64]
   category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: electron/icons/entitlements.mac.plist
+  entitlementsInherit: electron/icons/entitlements.mac.plist
+  # electron-builder v26: notarize is a boolean. The team id is supplied via
+  # the APPLE_TEAM_ID env var (+ APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD) in CI;
+  # if those are absent the step is skipped gracefully (local/test builds).
+  notarize: true
 
-# 签名/公证/发布在 Task 13 接线
+# Windows Authenticode 由 CI 环境变量驱动:electron-builder 默认读取
+# CSC_LINK / CSC_KEY_PASSWORD(无需在此写死)。本地无证书则产出未签名包(正常)。
+
+publish:
+  provider: github
+  owner: agegr
+  repo: pi-web

@@ -10,6 +10,7 @@ import {
   setOpenAtLogin,
   isOpenAtLogin,
 } from "./shortcuts";
+import { initUpdater, checkForUpdates } from "./updater";
 
 const isDev = process.env.PI_WEB_DESKTOP_MODE === "dev";
 
@@ -41,6 +42,17 @@ app.whenReady().then(async () => {
     attachHideOnClose(win);
     initLoginItem();
     registerGlobalShortcut();
+    // Auto-update is a NON-CRITICAL feature: isolate init so an updater failure
+    // cannot abort app startup.
+    try {
+      initUpdater();
+    } catch (err) {
+      console.warn("[desktop] updater init failed", err);
+    }
+    // 启动 5 秒后检查更新(避开启动峰值),仅打包版生效
+    if (app.isPackaged) {
+      setTimeout(() => checkForUpdates(), 5000);
+    }
   } catch (err) {
     console.error("[desktop] failed to start server:", err);
     app.quit();
@@ -82,7 +94,8 @@ function buildAppMenu(): MenuType {
         },
         {
           label: "检查更新",
-          enabled: false, // wired in Task 13 (electron/main/updater.ts checkForUpdates)
+          enabled: true, // triggers updater.checkForUpdates()
+          click: () => checkForUpdates(),
         },
       ],
     },
