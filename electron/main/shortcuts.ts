@@ -3,7 +3,7 @@ import Store from "electron-store";
 import { getMainWindow } from "./window";
 
 const store = new Store<{ openAtLogin?: boolean }>({
-  name: "pi-web-desktop",
+  name: "pi-web-desktop-prefs",
   defaults: { openAtLogin: false },
 });
 
