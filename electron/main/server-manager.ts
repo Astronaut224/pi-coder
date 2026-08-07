@@ -46,6 +46,9 @@ export class ServerManager {
     }
 
     const port = await getFreePort();
+    if (this.stopping) {
+      throw new Error("server manager is stopping; aborting fork");
+    }
     const serverPath = this.resolveServerPath();
     this.child = fork(serverPath, [], {
       env: buildServerEnv(port),
@@ -81,6 +84,8 @@ export class ServerManager {
     try {
       await this.start();
     } catch {
+      // 停机过程中 start() 抛错是预期的,不触发不可恢复回调
+      if (this.stopping) return;
       this.opts.onUnrecoverable?.();
     }
   }
@@ -96,9 +101,10 @@ export class ServerManager {
         const c = this.child!;
         c.once("exit", () => resolve());
         c.kill("SIGTERM");
-        // 兜底:3s 后强杀
+        // 兜底:3s 后若子进程仍存活则强杀
+        // (c.killed 仅表示已发送信号,不代表已退出;用 exitCode/signalCode 判断是否仍存活)
         setTimeout(() => {
-          if (!c.killed) c.kill("SIGKILL");
+          if (c.exitCode === null && c.signalCode === null) c.kill("SIGKILL");
           resolve();
         }, 3000).unref();
       });
