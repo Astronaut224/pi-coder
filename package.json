@@ -42,6 +42,8 @@
     "build:electron-main": "tsc -p electron/tsconfig.json",
     "build:desktop": "npm run build:web && npm run build:electron-main && npm run assemble:server && electron-builder --win",
     "build:desktop:mac": "npm run build:web && npm run build:electron-main && npm run assemble:server && electron-builder --mac",
+    "build:desktop:cn": "cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:desktop",
+    "build:desktop:mac:cn": "cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:desktop:mac",
     "assemble:server": "node scripts/build-electron.mjs",
     "lint:electron": "eslint electron --ext .ts,.tsx"
   },
