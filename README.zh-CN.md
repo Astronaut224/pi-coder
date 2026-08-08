@@ -67,6 +67,20 @@ $env:NO_PROXY = "localhost,127.0.0.1"
 npx @agegr/pi-web@latest
 ```
 
+## 桌面应用
+
+Pi Web 还提供跨平台 Electron 桌面版 —— 完整的网页界面，加上原生便利功能：
+
+- **系统托盘**：点击托盘图标切换窗口；关闭窗口时 Pi Web 会驻留托盘继续运行。
+- **全局快捷键** `Ctrl+Shift+P`（macOS 为 `Cmd+Shift+P`）：随时显示或隐藏窗口。
+- **开机自启**（默认关闭，可在应用菜单中切换）。
+- **原生通知**：任务完成时提醒，即使最小化到托盘也会收到。
+- **跟随系统主题**（亮色 / 暗色）。
+- **单实例**：再次启动会聚焦到已运行的窗口，而不是新开一个。
+- **应用内自动更新**（安装版）。
+
+安装包通过 [GitHub Releases](https://github.com/agegr/pi-web/releases) 分发；便携版免安装运行，但不自动更新。构建与打包细节见[桌面版构建与分发](./docs/desktop.md)。
+
 ## 功能介绍
 
 - **把历史工作接回来**：打开网页就能按项目找到以前的 pi 对话，不必在终端里翻文件或记住会话路径。
@@ -147,5 +161,9 @@ hooks/
   useTheme.ts         # 主题切换
 bin/
   pi-web.js           # npm CLI 入口
+electron/             # 可选的桌面外壳，将网页界面打包为原生应用
+  main/               # 窗口、托盘、菜单、IPC、全局快捷键、自动更新、server 子进程
+  preload/            # 暴露给渲染进程的 contextBridge API
+  icons/              # 托盘图标与 macOS entitlements
 instrumentation.ts    # 初始化服务端 HTTP dispatcher
 ```

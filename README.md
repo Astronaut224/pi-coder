@@ -69,6 +69,20 @@ $env:NO_PROXY = "localhost,127.0.0.1"
 npx @agegr/pi-web@latest
 ```
 
+## Desktop app
+
+Pi Web also ships as a cross-platform Electron desktop app — the full web UI plus native conveniences:
+
+- **System tray**: click the tray icon to toggle the window; closing the window keeps Pi Web running in the tray.
+- **Global hotkey** `Ctrl+Shift+P` (macOS `Cmd+Shift+P`) to show or hide the window from anywhere.
+- **Launch at login** (off by default — toggle it in the app menu).
+- **Native notifications** when a task finishes, even while hidden to the tray.
+- **Follows your system theme** (light/dark).
+- **Single-instance**: launching again focuses the running window instead of opening a new one.
+- **In-app auto-update** for installer builds.
+
+Installers are distributed via [GitHub Releases](https://github.com/agegr/pi-web/releases); the portable build runs without installing and does not auto-update. See [Desktop build & distribution](./docs/desktop.md) for build and packaging details.
+
 ## Features
 
 - **Pick work back up**: browse previous pi conversations by project without digging through terminal history or session paths.
@@ -151,5 +165,9 @@ hooks/
   useTheme.ts         # theme switching
 bin/
   pi-web.js           # npm CLI entrypoint
+electron/             # optional desktop shell bundling the web UI as a native app
+  main/               # window, tray, menus, IPC, global shortcut, updater, server subprocess
+  preload/            # contextBridge API exposed to the renderer
+  icons/              # tray icon and macOS entitlements
 instrumentation.ts    # initializes the server HTTP dispatcher
 ```
