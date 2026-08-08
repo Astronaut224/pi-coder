@@ -7,8 +7,11 @@
 
 ## 打包
 
-- Windows:`npm run build:desktop` → `release/pi-web Setup <ver>.exe` + portable
+- Windows:`npm run build:desktop` → `release/Pi Coder Setup <ver>.exe` + portable
 - macOS:在 mac 机器或 CI 跑同一命令,产出 dmg + zip
+- 国内网络(中国大陆):`electron-builder` 打包时会从 GitHub 下载 `winCodeSign` 等工具,易卡死超时(`Timeout awaiting 'request' for 600000ms`)。改用镜像变体,通过 `cross-env` 注入 `ELECTRON_BUILDER_BINARIES_MIRROR` 与 `ELECTRON_MIRROR`(均指向 npmmirror):
+  - Windows:`npm run build:desktop:cn`
+  - macOS:`npm run build:desktop:mac:cn`
 
 ## 签名(可选)
 
