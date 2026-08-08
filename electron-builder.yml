@@ -1,6 +1,6 @@
-appId: com.agegr.pi-web
-productName: pi-web
-copyright: Copyright © 2026 agegr
+appId: com.astronaut224.pi-coder
+productName: Pi Coder
+copyright: Copyright © 2026 Astronaut224
 directories:
   output: release
   buildResources: electron/icons
@@ -65,5 +65,5 @@ mac:
 
 publish:
   provider: github
-  owner: agegr
-  repo: pi-web
+  owner: Astronaut224
+  repo: pi-coder

@@ -1,14 +1,14 @@
 {
-  "name": "@agegr/pi-web",
+  "name": "pi-coder",
   "version": "0.8.7",
-  "description": "Web UI for the pi coding agent",
-  "homepage": "https://github.com/agegr/pi-web#readme",
+  "description": "基于 pi-web 改造的桌面版 AI Coding Agent",
+  "homepage": "https://github.com/Astronaut224/pi-coder#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/agegr/pi-web.git"
+    "url": "git+https://github.com/Astronaut224/pi-coder.git"
   },
   "bugs": {
-    "url": "https://github.com/agegr/pi-web/issues"
+    "url": "https://github.com/Astronaut224/pi-coder/issues"
   },
   "license": "MIT",
   "engines": {
