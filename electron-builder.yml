@@ -8,6 +8,7 @@ files:
   - dist-electron/**/*
   - package.json
   - electron/icons/tray.png
+  - electron/icons/icon.ico
   - electron/icons/tray-icon-template@2x.png
   - "!**/.DS_Store"
 extraResources:
