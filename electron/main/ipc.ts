@@ -20,7 +20,8 @@ export function registerIpc(): void {
     const color = typeof payload?.color === "string" ? payload.color : undefined;
     if (!color) return;
     const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow();
-    win?.setTitleBarOverlay({ color, symbolColor: contrastSymbolColor(color) });
+    if (!win || win.isDestroyed()) return;
+    win.setTitleBarOverlay({ color, symbolColor: contrastSymbolColor(color) });
   });
 
   ipcMain.on("desktop:quit", () => app.quit());

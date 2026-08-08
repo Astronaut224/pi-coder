@@ -23,9 +23,15 @@ export function relativeLuminance(hex: string): number {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
-/** Caption-button symbol color that stays readable on the given overlay bg. */
+/** Caption-button symbol color that stays readable on the given overlay bg.
+ *  Non-hex inputs (e.g. custom themes using rgb()/named colors) fall back to
+ *  white rather than throwing — the overlay `color` itself still applies. */
 export function contrastSymbolColor(bgHex: string): string {
-  return relativeLuminance(bgHex) >= 0.5 ? "#000000" : "#ffffff";
+  try {
+    return relativeLuminance(bgHex) >= 0.5 ? "#000000" : "#ffffff";
+  } catch {
+    return "#ffffff";
+  }
 }
 
 /** Initial overlay colors before the renderer pushes the resolved theme color. */

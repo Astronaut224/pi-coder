@@ -25,6 +25,13 @@ test("contrastSymbolColor: light bg -> black, dark bg -> white", async () => {
   assert.equal(contrastSymbolColor("#000000"), "#ffffff");
 });
 
+test("contrastSymbolColor: non-hex input does not throw, returns white default", async () => {
+  const { contrastSymbolColor } = await loadSubject();
+  assert.equal(contrastSymbolColor("rgb(36, 35, 31)"), "#ffffff");
+  assert.equal(contrastSymbolColor("white"), "#ffffff");
+  assert.equal(contrastSymbolColor(""), "#ffffff");
+});
+
 test("initialOverlayColors dark/light", async () => {
   const { initialOverlayColors } = await loadSubject();
   assert.deepEqual(initialOverlayColors(true), { color: "#24231f", symbolColor: "#ffffff" });
