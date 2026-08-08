@@ -1,6 +1,5 @@
 import { fork, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { existsSync } from "node:fs";
 import { app } from "electron";
 import {
   buildServerEnv,
@@ -51,12 +50,12 @@ export class ServerManager {
       throw new Error("server manager is stopping; aborting fork");
     }
     const serverPath = this.resolveServerPath();
-    // In the packaged app the server deps live in a "modules" dir (renamed at assemble
-    // time to dodge electron-builder's top-level node_modules exclusion). Point the
-    // forked Node process at it via NODE_PATH so bare requires (next, react, …) resolve.
-    const modulesDir = path.join(path.dirname(serverPath), "modules");
+    // The forked standalone server resolves all of its deps (next,
+    // @earendil-works/*, undici, …) from its own real node_modules, shipped alongside
+    // server.js via extraResources. No NODE_PATH is needed: CJS require() and the ESM
+    // import() Next uses for serverExternalPackages both resolve through that dir.
     this.child = fork(serverPath, [], {
-      env: buildServerEnv(port, existsSync(modulesDir) ? { NODE_PATH: modulesDir } : {}),
+      env: buildServerEnv(port),
       stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
     const log = (chunk: Buffer) => {

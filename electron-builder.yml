@@ -14,6 +14,17 @@ extraResources:
   - from: resources/server
     to: server
     filter: ["**/*"]
+  # electron-builder unconditionally drops a *top-level* node_modules from
+  # extraResources (app-builder-lib util/filter.js: `relative === "node_modules"`),
+  # so the entry above ships the server body but NOT its deps. The standalone server
+  # needs its real node_modules at runtime: Next.js loads the externalized
+  # @earendil-works/* packages via ESM `import()`, which ignores NODE_PATH and only
+  # resolves through a real node_modules dir walked up from the route file. Copy the
+  # deps to a *nested* destination (server/node_modules) so the top-level exclusion
+  # does not apply and they ship alongside server.js.
+  - from: resources/server/node_modules
+    to: server/node_modules
+    filter: ["**/*"]
 asarUnpack: []
 
 win:
