@@ -306,7 +306,7 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
            {!compact && <span>{t("i18n.branches")}</span>}
         </button>
         {open && dropdownPos && (
-          <div style={{
+          <div className="titlebar-no-drag" style={{
             position: "fixed",
             top: dropdownPos.top,
             left: dropdownPos.left,

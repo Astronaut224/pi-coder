@@ -1346,7 +1346,7 @@ export function AppShell() {
           })()}
           {/* Top panel dropdown — shared, only one active at a time */}
           {activeTopPanel && topPanelPos && (
-            <div style={{
+            <div className="titlebar-no-drag" style={{
               position: "fixed",
               top: topPanelPos.top,
               left: topPanelPos.left,

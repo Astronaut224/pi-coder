@@ -1128,3 +1128,9 @@ span.linenumber {
 .titlebar-drag textarea {
   -webkit-app-region: no-drag;
 }
+/* Popups that are DOM children of the drag region (dropdowns) must opt out
+   entirely — their interactive rows may be bare divs, and empty padding areas
+   should not start a window drag. Inherits no-drag to the whole subtree. */
+.titlebar-no-drag {
+  -webkit-app-region: no-drag;
+}
