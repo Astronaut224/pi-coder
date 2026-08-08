@@ -1,6 +1,7 @@
 import path from "node:path";
-import { BrowserWindow, shell } from "electron";
+import { BrowserWindow, nativeTheme, shell } from "electron";
 import Store from "electron-store";
+import { initialOverlayColors } from "./titlebar-color";
 
 interface WindowBounds {
   x?: number;
@@ -22,6 +23,9 @@ export function getMainWindow(): BrowserWindow | null {
 
 export function createMainWindow(): BrowserWindow {
   const bounds = store.get("windowBounds")!;
+  const isWin = process.platform === "win32";
+  // Initial overlay/bg color before the renderer pushes the resolved --bg-panel.
+  const overlay = initialOverlayColors(nativeTheme.shouldUseDarkColors);
   const win = new BrowserWindow({
     width: bounds.width,
     height: bounds.height,
@@ -30,8 +34,23 @@ export function createMainWindow(): BrowserWindow {
     minWidth: 720,
     minHeight: 500,
     show: false,
-    autoHideMenuBar: process.platform === "win32",
-    title: "pi-web",
+    autoHideMenuBar: isWin,
+    title: "Pi Coder",
+    icon: path.join(__dirname, "..", "..", "electron", "icons", "icon.ico"),
+    backgroundColor: overlay.color,
+    // Windows: hide the OS title bar and overlay the native caption buttons onto
+    // the app's themed top bar. The renderer pushes the resolved --bg-panel color
+    // at runtime via the `desktop:set-title-bar-overlay` IPC.
+    ...(isWin
+      ? {
+          titleBarStyle: "hidden" as const,
+          titleBarOverlay: {
+            color: overlay.color,
+            symbolColor: overlay.symbolColor,
+            height: 36,
+          },
+        }
+      : {}),
     webPreferences: {
       preload: path.join(__dirname, "..", "preload", "index.js"),
       contextIsolation: true,

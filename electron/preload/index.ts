@@ -6,6 +6,9 @@ const api = {
   /** 打开原生目录选择框;返回选中路径或 null。 */
   selectDirectory: (): Promise<string | null> =>
     ipcRenderer.invoke("desktop:selectDirectory"),
+  /** Sync the Windows title bar overlay color to the current theme (desktop only). */
+  setTitleBarColor: (hex: string) =>
+    ipcRenderer.send("desktop:set-title-bar-overlay", { color: hex }),
   /** 订阅自动更新状态(Task 13 接线)。 */
   onUpdateStatus: (cb: (status: unknown) => void) => {
     const handler = (_e: unknown, status: unknown) => cb(status);
