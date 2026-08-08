@@ -1,4 +1,5 @@
 import { cp, mkdir, rm, stat } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -27,6 +28,25 @@ async function main() {
   //    handled instead in electron-builder.yml by shipping the deps to a nested
   //    destination (server/node_modules).
   await cp(standaloneDir, targetDir, { recursive: true });
+
+  // 1b) Restore runtime data files Next.js standalone (nft) dropped. nft traces
+  //     statically-imported modules but misses JSON the externalized
+  //     @earendil-works/* packages read at runtime via fs.readFile — notably
+  //     pi-coding-agent's dist/modes/interactive/theme/*.json loaded by initTheme.
+  //     Without them the first operation that starts/restores a session
+  //     (startRpcSession) throws ENOENT → HTTP 500, so e.g. switching models on an
+  //     existing session silently fails (the request throws, the client never
+  //     applies the override) while a brand-new session works (model selection is
+  //     pure client state until the first send). Merge each package's full dist
+  //     from the project node_modules to bring those files back.
+  const externalizedPackages = ["pi-coding-agent", "pi-agent-core", "pi-ai", "pi-tui"];
+  for (const pkg of externalizedPackages) {
+    const srcDist = path.join(root, "node_modules", "@earendil-works", pkg, "dist");
+    const dstPkgDir = path.join(targetDir, "node_modules", "@earendil-works", pkg);
+    if (existsSync(srcDist) && existsSync(dstPkgDir)) {
+      await cp(srcDist, path.join(dstPkgDir, "dist"), { recursive: true });
+    }
+  }
 
   // 2) .next/static + public are NOT in standalone by default — copy them in.
   await cp(path.join(root, ".next", "static"), path.join(targetDir, ".next", "static"), { recursive: true });
