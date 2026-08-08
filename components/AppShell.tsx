@@ -49,6 +49,8 @@ type AutoNameStatus =
 const TOP_BAR_ICON_BUTTON_SIZE = 36;
 const LANGUAGE_MENU_WIDTH = 176;
 const THEME_MENU_WIDTH = 224;
+/** Reserved right-side space for the Windows caption buttons (≈ 3 × 46px). */
+const DESKTOP_CAPTION_WIDTH = 140;
 
 export function AppShell() {
   const router = useRouter();
@@ -77,6 +79,12 @@ export function AppShell() {
   const [projectTrustBusy, setProjectTrustBusy] = useState(false);
   const [projectTrustError, setProjectTrustError] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    setIsDesktop(
+      (window as unknown as { piDesktop?: { isDesktop?: boolean } }).piDesktop?.isDesktop === true,
+    );
+  }, []);
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [mobileSidebarReady, setMobileSidebarReady] = useState(false);
   const sidebarWidthRef = useRef(SIDEBAR_DEFAULT_WIDTH);
@@ -888,7 +896,20 @@ export function AppShell() {
       {/* Center: chat */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", minWidth: 0 }}>
         {/* Top bar with sidebar toggle */}
-        <div ref={topBarRef} style={{ display: "flex", alignItems: "center", flexShrink: 0, borderBottom: "1px solid var(--border)", height: "calc(36px + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)", background: "var(--bg-panel)" }}>
+        <div
+          ref={topBarRef}
+          className={isDesktop ? "titlebar-drag" : undefined}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            flexShrink: 0,
+            borderBottom: "1px solid var(--border)",
+            height: "calc(36px + env(safe-area-inset-top))",
+            paddingTop: "env(safe-area-inset-top)",
+            paddingRight: isDesktop ? `${DESKTOP_CAPTION_WIDTH}px` : undefined,
+            background: "var(--bg-panel)",
+          }}
+        >
           <button
             onClick={handleSidebarToggle}
              title={sidebarOpen ? translate("sidebar.hide") : translate("sidebar.show")}

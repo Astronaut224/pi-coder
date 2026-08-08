@@ -94,6 +94,7 @@ function applyCssVars(vars: Record<string, string>): void {
       root.style.removeProperty(key);
     }
   }
+  syncTitleBarOverlay();
 }
 
 function clearCssVars(): void {
@@ -101,6 +102,7 @@ function clearCssVars(): void {
   for (const key of THEME_CSS_VARS) {
     root.style.removeProperty(key);
   }
+  syncTitleBarOverlay();
 }
 
 function setRootThemeName(name: string): void {
@@ -109,6 +111,23 @@ function setRootThemeName(name: string): void {
   } else {
     delete document.documentElement.dataset.theme;
   }
+}
+
+// ─── Desktop title bar sync ──────────────────────────────────────────────────
+
+interface DesktopTitleBarBridge {
+  isDesktop?: true;
+  setTitleBarColor?: (hex: string) => void;
+}
+
+/** Push the resolved --bg-panel color to the native Windows titleBarOverlay. */
+function syncTitleBarOverlay(): void {
+  const desktop = (window as unknown as { piDesktop?: DesktopTitleBarBridge }).piDesktop;
+  if (!desktop?.isDesktop) return;
+  const color = getComputedStyle(document.documentElement)
+    .getPropertyValue("--bg-panel")
+    .trim();
+  if (color) desktop.setTitleBarColor?.(color);
 }
 
 // ─── Storage helpers ─────────────────────────────────────────────────────────
