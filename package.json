@@ -1,6 +1,6 @@
 {
   "name": "pi-coder",
-  "version": "0.87.4",
+  "version": "0.87.5",
   "description": "基于 pi-web 改造的桌面版 AI Coding Agent",
   "homepage": "https://github.com/Astronaut224/pi-coder#readme",
   "repository": {
