@@ -13,71 +13,71 @@ jobs:
   # ==============================
   # Windows
   # ==============================
-build-windows:
-  name: Build Windows
-  runs-on: windows-latest
-
-  steps:
-    - name: Checkout
-      uses: actions/checkout@v5
-
-    - name: Setup Node.js
-      uses: actions/setup-node@v5
-      with:
-        node-version: "22.19.0"
-        cache: npm
-
-    - name: Show environment
-      shell: pwsh
-      run: |
-        node --version
-        npm --version
-        npm config get registry
-
-    - name: Install dependencies
-      run: npm ci --verbose
-
-    - name: Sync version from tag
-      shell: bash
-      run: |
-        VERSION="${GITHUB_REF_NAME#v}"
-        echo "Building version: $VERSION"
-        npm version "$VERSION" --no-git-tag-version --allow-same-version
-
-    # 不再直接 npm run build:desktop
-    # 拆开以后可以精确知道哪里报错
-
-    - name: Generate icons
-      run: npm run generate:icons
-
-    - name: Build Next.js
-      run: npm run build:web
-
-    - name: Build Electron main
-      run: npm run build:electron-main
-
-    - name: Assemble server
-      run: npm run assemble:server
-
-    - name: Package Windows
-      env:
-        CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      run: npx electron-builder --win --publish never
-
-    - name: List release files
-      shell: pwsh
-      run: |
-        Get-ChildItem -Path release -Recurse
-
-    - name: Upload Windows artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: windows-release
-        path: |
-          release/*.exe
-          release/*.yml
-          release/*.blockmap
-        if-no-files-found: error
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+  
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+  
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22.19.0"
+          cache: npm
+  
+      - name: Show environment
+        shell: pwsh
+        run: |
+          node --version
+          npm --version
+          npm config get registry
+  
+      - name: Install dependencies
+        run: npm ci --verbose
+  
+      - name: Sync version from tag
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "Building version: $VERSION"
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+  
+      # 不再直接 npm run build:desktop
+      # 拆开以后可以精确知道哪里报错
+  
+      - name: Generate icons
+        run: npm run generate:icons
+  
+      - name: Build Next.js
+        run: npm run build:web
+  
+      - name: Build Electron main
+        run: npm run build:electron-main
+  
+      - name: Assemble server
+        run: npm run assemble:server
+  
+      - name: Package Windows
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: npx electron-builder --win --publish never
+  
+      - name: List release files
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path release -Recurse
+  
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-release
+          path: |
+            release/*.exe
+            release/*.yml
+            release/*.blockmap
+          if-no-files-found: error
 
 
   # ==============================
