@@ -152,6 +152,7 @@ jobs:
   # ==============================
   release:
     name: Publish GitHub Release
+
     needs:
       - build-windows
       - build-macos
@@ -159,6 +160,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 先 Checkout，让当前目录成为正常 Git 仓库
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
       - name: Download build artifacts
         uses: actions/download-artifact@v5
         with:
@@ -167,14 +174,15 @@ jobs:
 
       - name: List artifacts
         run: |
-          echo "Release files:"
-          find artifacts -type f -maxdepth 2 -print
+          echo "===== Release files ====="
+          find artifacts -maxdepth 2 -type f -print
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${GITHUB_REF_NAME}" artifacts/* \
+            --repo "${GITHUB_REPOSITORY}" \
             --verify-tag \
             --title "Pi Coder ${GITHUB_REF_NAME}" \
             --generate-notes
