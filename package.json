@@ -46,7 +46,8 @@
     "build:desktop:cn": "cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:desktop",
     "build:desktop:mac:cn": "cross-env ELECTRON_BUILDER_BINARIES_MIRROR=https://npmmirror.com/mirrors/electron-builder-binaries/ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm run build:desktop:mac",
     "assemble:server": "node scripts/build-electron.mjs",
-    "lint:electron": "eslint electron --ext .ts,.tsx"
+    "lint:electron": "eslint electron --ext .ts,.tsx",
+    "release-github": "powershell -ExecutionPolicy Bypass -File ./release.ps1"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "0.84.0",

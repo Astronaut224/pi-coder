@@ -1,9 +1,11 @@
 appId: com.astronaut224.pi-coder
 productName: Pi Coder
 copyright: Copyright © 2026 Astronaut224
+
 directories:
   output: release
   buildResources: electron/icons
+
 files:
   - dist-electron/**/*
   - package.json
@@ -11,21 +13,16 @@ files:
   - electron/icons/icon.ico
   - electron/icons/tray-icon-template@2x.png
   - "!**/.DS_Store"
+
 extraResources:
   - from: resources/server
     to: server
     filter: ["**/*"]
-  # electron-builder unconditionally drops a *top-level* node_modules from
-  # extraResources (app-builder-lib util/filter.js: `relative === "node_modules"`),
-  # so the entry above ships the server body but NOT its deps. The standalone server
-  # needs its real node_modules at runtime: Next.js loads the externalized
-  # @earendil-works/* packages via ESM `import()`, which ignores NODE_PATH and only
-  # resolves through a real node_modules dir walked up from the route file. Copy the
-  # deps to a *nested* destination (server/node_modules) so the top-level exclusion
-  # does not apply and they ship alongside server.js.
+
   - from: resources/server/node_modules
     to: server/node_modules
     filter: ["**/*"]
+
 asarUnpack: []
 
 win:
@@ -51,18 +48,17 @@ mac:
       arch: [x64, arm64]
     - target: zip
       arch: [x64, arm64]
-  category: public.app-category.developer-tools
-  hardenedRuntime: true
-  gatekeeperAssess: false
-  entitlements: electron/icons/entitlements.mac.plist
-  entitlementsInherit: electron/icons/entitlements.mac.plist
-  # electron-builder v26: notarize is a boolean. The team id is supplied via
-  # the APPLE_TEAM_ID env var (+ APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD) in CI;
-  # if those are absent the step is skipped gracefully (local/test builds).
-  notarize: true
 
-# Windows Authenticode 由 CI 环境变量驱动:electron-builder 默认读取
-# CSC_LINK / CSC_KEY_PASSWORD(无需在此写死)。本地无证书则产出未签名包(正常)。
+  category: public.app-category.developer-tools
+
+  # 暂不签名
+  identity: null
+
+  # 未签名构建无需 Hardened Runtime
+  hardenedRuntime: false
+
+  # 暂不进行 Apple notarization
+  notarize: false
 
 publish:
   provider: github
