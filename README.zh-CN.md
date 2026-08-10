@@ -2,13 +2,15 @@
 
 [English](./README.md) | [日本語](./README.ja.md) | [Русский](./README.ru.md)
 
-[pi 编程智能体](https://github.com/badlogic/pi-mono) 的本地网页界面。它会读取本机的 pi 会话文件，在浏览器里提供会话管理、实时对话、模型配置、技能管理和项目文件预览。
+基于[pi 编程智能体](https://github.com/badlogic/pi-mono) 的本地网页界面改造的桌面程序。它会读取本机的 pi 会话文件，在浏览器里提供会话管理、实时对话、模型配置、技能管理和项目文件预览。
 
 中文微信群：请查看 [GitHub Discussions 帖子](https://github.com/agegr/pi-web/discussions/271)。
 
 ## 快速开始
 
 Pi Coder 要求 Node.js 22.19.0 或更高版本。可通过 `node --version` 检查当前版本。
+
+上游Pi Web快速启动。
 
 **无需安装，直接运行：**
 
@@ -84,11 +86,36 @@ Pi Coder 还提供跨平台 Electron 桌面版 —— 完整的网页界面，�
 ## 功能介绍
 
 - **把历史工作接回来**：打开网页就能按项目找到以前的 pi 对话，不必在终端里翻文件或记住会话路径。
+
 - **放心试不同方向**：可以从某条历史消息重新开始，也可以复制出一条独立的新路线，探索方案时不怕弄乱原来的对话。
+
 - **跨分支工作**：在侧边栏切换 Git worktree，让新会话和 Explorer 跟随你选择的 checkout。
+
+  ![image-20260810110828841](docs/images/image-20260810110828841.png)
+
 - **边聊边看项目文件**：左侧浏览项目文件，右侧打开源码、文档、图片、音频和 PDF；文件变化会自动刷新，适合边让 agent 改边检查结果。
+
+  ![2](docs/images/2.png)
+
+- **文件浏览器与系统联动**
+
+![ad49f70a-2690-4fcc-b810-3462d7fc22b8](docs/images/ad49f70a-2690-4fcc-b810-3462d7fc22b8.jpeg)
+
 - **随时掌握会话状态**：在顶部就能看到上下文占用、花费、压缩结果和系统提示，长会话不再像黑箱。
+
+  ![3](docs/images/3.png)
+
 - **少离开当前界面**：模型、登录/API key、模型测试和技能开关都能在网页里处理，配置 agent 时不用在多个工具之间来回切换。
+
+- **自定义主题**：根据Pi原生的自定义主题json配置文件，可以实现自己定义界面的颜色主题。案例在 `docs/themes` 中。
+
+  - 具体实现方法是在 `~/.pi/agent/themes/` 中将自己修改的 json 文件粘贴进去。
+
+  ![a12ba8c8-db7a-4434-b750-2f8cfb3ecd91](docs/images/a12ba8c8-db7a-4434-b750-2f8cfb3ecd91.jpeg)
+
+  ![9368ad94-64f4-430b-9f42-16df59a8203e](docs/images/9368ad94-64f4-430b-9f42-16df59a8203e.jpeg)
+
+  ![8b02db3c-810d-4fb9-8806-9f80fe2cc151](docs/images/8b02db3c-810d-4fb9-8806-9f80fe2cc151.jpeg)
 
 ## 注意事项
 

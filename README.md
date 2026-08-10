@@ -2,7 +2,7 @@
 
 [中文文档](./README.zh-CN.md) | [日本語](./README.ja.md) | [Русский](./README.ru.md)
 
-Local web UI for the [pi coding agent](https://github.com/badlogic/pi-mono). Pi Coder reads your local pi session files and gives you a browser workspace for session browsing, real-time chat, model configuration, skill management, and project file preview.
+A desktop app built from the local web UI for the [pi coding agent](https://github.com/badlogic/pi-mono). Pi Coder reads your local pi session files and provides session browsing, real-time chat, model configuration, skill management, and project file preview.
 
 ![Pi Coder shows the same pi session with structured Markdown, tool calls, and project navigation beside the CLI](https://raw.githubusercontent.com/agegr/pi-web/main/docs/screenshot2.png)
 
@@ -11,6 +11,8 @@ The same pi session in CLI and Pi Coder: structured tool calls, readable Markdow
 ## Quick Start
 
 Pi Coder requires Node.js 22.19.0 or newer. Check your version with `node --version`.
+
+Quick start (upstream Pi Web):
 
 **Run without installing:**
 
@@ -86,12 +88,38 @@ Installers are distributed via [GitHub Releases](https://github.com/agegr/pi-web
 ## Features
 
 - **Pick work back up**: browse previous pi conversations by project without digging through terminal history or session paths.
+
 - **Try different directions safely**: continue from an earlier message or fork a session into a separate route.
+
 - **Work across branches**: switch Git worktrees from the sidebar so new sessions and the Explorer follow the checkout you choose.
+
+  ![image-20260810110828841](docs/images/image-20260810110828841.png)
+
 - **Chat beside the project**: browse files on the left and preview source, docs, images, audio, and PDFs on the right while the agent works.
+
+  ![2](docs/images/2.png)
+
+- **File browser integration with the system**
+
+![ad49f70a-2690-4fcc-b810-3462d7fc22b8](docs/images/ad49f70a-2690-4fcc-b810-3462d7fc22b8.jpeg)
+
 - **See session state clearly**: context usage, cost, compaction state, and system prompt details are visible from the top bar.
+
+  ![3](docs/images/3.png)
+
 - **Configure less from the terminal**: manage models, login/API keys, model tests, and skill switches from the web UI.
+
 - **Use the interface in your language**: switch between the supported UI languages from the top bar.
+
+- **Custom themes**: using Pi's native custom-theme JSON config, you can define your own interface color theme. Examples are in `docs/themes`.
+
+  - To use one, paste your modified JSON file into `~/.pi/agent/themes/`.
+
+  ![a12ba8c8-db7a-4434-b750-2f8cfb3ecd91](docs/images/a12ba8c8-db7a-4434-b750-2f8cfb3ecd91.jpeg)
+
+  ![9368ad94-64f4-430b-9f42-16df59a8203e](docs/images/9368ad94-64f4-430b-9f42-16df59a8203e.jpeg)
+
+  ![8b02db3c-810d-4fb9-8806-9f80fe2cc151](docs/images/8b02db3c-810d-4fb9-8806-9f80fe2cc151.jpeg)
 
 ## Notes
 
