@@ -1694,6 +1694,9 @@ export function AppShell() {
           flexShrink: 0,
           height: "calc(36px + env(safe-area-inset-top))",
           paddingTop: "env(safe-area-inset-top)",
+          // Keep the side-chat button clear of the floating file-panel toggle,
+          // and (on desktop) the native caption buttons overlaid at top-right.
+          paddingRight: TOP_BAR_ICON_BUTTON_SIZE + (isDesktop ? DESKTOP_CAPTION_WIDTH : 0),
           background: "var(--bg-panel)",
           borderBottom: "1px solid var(--border)",
         }}>
@@ -1776,7 +1779,13 @@ export function AppShell() {
        title={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
        aria-label={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
       style={{
-        position: "fixed", top: "env(safe-area-inset-top)", right: "env(safe-area-inset-right)", zIndex: 300,
+        position: "fixed",
+        top: "env(safe-area-inset-top)",
+        // On Windows desktop the native caption buttons (titleBarOverlay) sit at
+        // the top-right corner on top of web content; shift left so the toggle
+        // isn't occluded by them.
+        right: isDesktop ? `calc(env(safe-area-inset-right) + ${DESKTOP_CAPTION_WIDTH}px)` : "env(safe-area-inset-right)",
+        zIndex: 300,
         display: "flex", alignItems: "center", justifyContent: "center",
         width: 36, height: 36, padding: 0,
         background: "var(--bg-panel)", border: "none", borderLeft: "1px solid var(--border)", borderBottom: "1px solid var(--border)",
