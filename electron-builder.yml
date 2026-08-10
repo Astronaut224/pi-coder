@@ -33,6 +33,9 @@ win:
       arch: [x64]
 
 nsis:
+  # 固定安装包包名，便于 electron-updater 自动更新匹配
+  # (productName "Pi Coder" 含空格，不能用 ${productName}，否则会变成 "Pi Coder-Setup-...")
+  artifactName: Pi-Coder-Setup-${version}.${ext}
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
