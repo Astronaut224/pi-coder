@@ -17,6 +17,9 @@ const api = {
   },
   /** 退出整个应用(含 server 子进程)。 */
   quitApp: () => ipcRenderer.send("desktop:quit"),
+  /** 在系统文件管理器中显示/打开路径(桌面端)。 */
+  openInFileManager: (fullPath: string, isDir: boolean) =>
+    ipcRenderer.invoke("desktop:openInFileManager", fullPath, isDir),
 };
 
 contextBridge.exposeInMainWorld("piDesktop", api);

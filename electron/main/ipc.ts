@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow, app } from "electron";
+import { ipcMain, dialog, BrowserWindow, app, shell } from "electron";
 import { getMainWindow } from "./window";
 import { contrastSymbolColor } from "./titlebar-color";
 
@@ -22,6 +22,17 @@ export function registerIpc(): void {
     const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow();
     if (!win || win.isDestroyed()) return;
     win.setTitleBarOverlay({ color, symbolColor: contrastSymbolColor(color) });
+  });
+
+  // 在系统文件管理器中显示/打开路径(桌面端)。文件→定位,文件夹→打开。
+  ipcMain.handle("desktop:openInFileManager", (_event, fullPath: unknown, isDir: unknown) => {
+    if (typeof fullPath !== "string" || fullPath.length === 0) return;
+    if (typeof isDir !== "boolean") return;
+    if (isDir) {
+      void shell.openPath(fullPath);
+    } else {
+      shell.showItemInFolder(fullPath);
+    }
   });
 
   ipcMain.on("desktop:quit", () => app.quit());
