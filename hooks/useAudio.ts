@@ -65,7 +65,7 @@ export function useAudio() {
     const desktop = typeof window !== "undefined" ? window.piDesktop : undefined;
     if (desktop) {
       try {
-        new Notification("pi-web", { body: "任务已完成" });
+        new Notification("Pi Coder", { body: "任务已完成" });
       } catch {
         /* Notification 不可用时忽略 */
       }

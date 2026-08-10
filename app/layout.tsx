@@ -11,9 +11,9 @@ const notoSansMono = Noto_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pi Web",
-  description: "Pi Web interface for the pi coding agent",
-  applicationName: "Pi Web",
+  title: "Pi Coder",
+  description: "Pi Coder interface for the pi coding agent",
+  applicationName: "Pi Coder",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Pi Web",
+    title: "Pi Coder",
   },
   formatDetection: {
     telephone: false,

@@ -1,4 +1,4 @@
-# Pi Web
+# Pi Coder
 
 [English](./README.md) | [日本語](./README.ja.md) | [Русский](./README.ru.md)
 
@@ -8,7 +8,7 @@
 
 ## 快速开始
 
-Pi Web 要求 Node.js 22.19.0 或更高版本。可通过 `node --version` 检查当前版本。
+Pi Coder 要求 Node.js 22.19.0 或更高版本。可通过 `node --version` 检查当前版本。
 
 **无需安装，直接运行：**
 
@@ -23,7 +23,7 @@ npm install -g @agegr/pi-web
 pi-web
 ```
 
-启动后打开 [http://127.0.0.1:30141](http://127.0.0.1:30141)。命令行版本会在服务就绪后尝试自动打开浏览器。Pi Web 默认仅监听 `127.0.0.1`。
+启动后打开 [http://127.0.0.1:30141](http://127.0.0.1:30141)。命令行版本会在服务就绪后尝试自动打开浏览器。Pi Coder 默认仅监听 `127.0.0.1`。
 
 **可选参数：**
 
@@ -42,12 +42,12 @@ PI_WEB_NO_OPEN=1 pi-web         # 适用于后台服务或开机自启
 
 设置 `PI_WEB_PASSWORD` 后，网页和所有 API 端点都会启用 HTTP Basic Auth，用户名固定为 `pi`。未设置或设置为空值时不启用认证。
 
-Pi Web 可以调用高权限智能体。Basic Auth 不会加密传输中的密码，因此不要把明文 HTTP 暴露到互联网。远程访问时应使用可信反向代理提供 HTTPS，或通过可信 VPN 访问。
+Pi Coder 可以调用高权限智能体。Basic Auth 不会加密传输中的密码，因此不要把明文 HTTP 暴露到互联网。远程访问时应使用可信反向代理提供 HTTPS，或通过可信 VPN 访问。
 API 请求仅接受 loopback 名称、IP 字面量、当前监听主机名，以及 `PI_WEB_ALLOWED_HOSTS` 中以逗号分隔的精确主机名。可信反向代理使用不同的外部主机名时，请配置该变量。
 
 ## HTTP 代理
 
-Pi Web 的服务端模型请求和 API 请求会读取标准的 `HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY` 环境变量。
+Pi Coder 的服务端模型请求和 API 请求会读取标准的 `HTTP_PROXY`、`HTTPS_PROXY` 和 `NO_PROXY` 环境变量。
 
 macOS 或 Linux：
 
@@ -69,9 +69,9 @@ npx @agegr/pi-web@latest
 
 ## 桌面应用
 
-Pi Web 还提供跨平台 Electron 桌面版 —— 完整的网页界面，加上原生便利功能：
+Pi Coder 还提供跨平台 Electron 桌面版 —— 完整的网页界面，加上原生便利功能：
 
-- **系统托盘**：点击托盘图标切换窗口；关闭窗口时 Pi Web 会驻留托盘继续运行。
+- **系统托盘**：点击托盘图标切换窗口；关闭窗口时 Pi Coder 会驻留托盘继续运行。
 - **全局快捷键** `Ctrl+Shift+P`（macOS 为 `Cmd+Shift+P`）：随时显示或隐藏窗口。
 - **开机自启**（默认关闭，可在应用菜单中切换）。
 - **原生通知**：任务完成时提醒，即使最小化到托盘也会收到。
@@ -96,7 +96,7 @@ Pi Web 还提供跨平台 Electron 桌面版 —— 完整的网页界面，加�
 - **会话文件**：路径形如 `~/.pi/agent/sessions/<编码后的工作目录>/<时间戳>_<uuid>.jsonl`。
 - **模型配置**：Models 面板读写 pi agent 目录下的 `models.json`，模型列表和默认模型由 pi 的配置解析得到。
 - **文件访问**：文件浏览和预览面向当前选择的项目目录，以及会话中已出现过的工作目录。
-- **Git worktree**：什么时候显示切换器、新建目录在哪里、删除会影响什么，见 [Pi Web 里的 Worktree](./docs/worktrees.zh-CN.md)。
+- **Git worktree**：什么时候显示切换器、新建目录在哪里、删除会影响什么，见 [Pi Coder 里的 Worktree](./docs/worktrees.zh-CN.md)。
 - **Fork 与会话内分支不同**：Fork 会创建新的 `.jsonl` 文件；“Edit from here” 是同一会话文件里的分支。
 
 ## 开发

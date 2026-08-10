@@ -1,4 +1,4 @@
-# Pi Web - Development Notes
+# Pi Coder - Development Notes
 
 ## Quick Start
 

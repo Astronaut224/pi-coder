@@ -1,6 +1,6 @@
-# Pi Web Themes
+# Pi Coder Themes
 
-Pi Web reads JSON theme files from a single fixed directory and maps them onto
+Pi Coder reads JSON theme files from a single fixed directory and maps them onto
 its CSS variables, so the whole UI — backgrounds, text, borders, the brand
 accent, message bubbles — recolors to match.
 
@@ -13,7 +13,7 @@ always available and needs no files. The themes described here override it.
 ~/.pi/agent/themes/
 ```
 
-That is the only directory Pi Web reads. It cannot read arbitrary paths, the
+That is the only directory Pi Coder reads. It cannot read arbitrary paths, the
 project directory, or files you point it at — drop theme JSON here.
 
 ### Install the example themes
@@ -42,7 +42,7 @@ Base-name rules (enforced by a strict whitelist):
 - 1–64 characters.
 - No `/`, `\`, `:`, `.`, spaces, or `..`.
 
-When you switch light/dark mode, Pi Web automatically loads the matching
+When you switch light/dark mode, Pi Coder automatically loads the matching
 `-light` / `-dark` file. If only one variant exists, that file is used for both
 modes (no error). The light/dark label of a variant is decided by the actual
 brightness of its `bg0`, not only by the filename suffix.
@@ -119,7 +119,7 @@ derived from `--accent` automatically; you usually only need to set `accent`.
   fresh on every request (never cached), and the list is re-fetched each time
   you open the picker.
 - **The page reverted to the default theme.** The selected theme's file was
-  removed or became unreadable. Pi Web falls back to the default theme, clears
+  removed or became unreadable. Pi Coder falls back to the default theme, clears
   the stored theme name, and keeps your light/dark mode. Re-add the file and
   reselect it.
 - **Switching light/dark keeps one variant.** You only provided one file. Add a
