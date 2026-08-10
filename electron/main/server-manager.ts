@@ -115,6 +115,28 @@ export class ServerManager {
       this.child = null;
     }
   }
+
+  /**
+   * 同步、瞬时地强杀 server 子进程(发 SIGKILL 后立即返回,不等待 exit)。
+   *
+   * 专用于"下载更新后退出并安装"路径:Electron fork() 出来的 server 子进程与主进程
+   * 同名(都是 Pi Coder.exe)。更新时若主进程被 NSIS 安装器强杀,正在 await 的
+   * server.stop() 会被中断、子进程沦为孤儿,安装器就会反复检测到残留的 Pi Coder.exe
+   * 而弹出"无法关闭"对话框。因此在 app.exit(0) 之前必须先同步消灭它。
+   * 普通退出仍走 stop() 的优雅关闭。
+   */
+  killNow(): void {
+    this.stopping = true;
+    const c = this.child;
+    this.child = null;
+    if (c) {
+      try {
+        c.kill("SIGKILL");
+      } catch {
+        /* 进程已退出 */
+      }
+    }
+  }
 }
 
 function waitForReadyUrl(url: string): Promise<void> {

@@ -1,5 +1,5 @@
 import { autoUpdater } from "electron-updater";
-import { BrowserWindow } from "electron";
+import { BrowserWindow, autoUpdater as electronAutoUpdater } from "electron";
 
 export type UpdateStatus =
   | { state: "checking" }
@@ -17,9 +17,19 @@ function broadcast(status: UpdateStatus): void {
   }
 }
 
-export function initUpdater(): void {
+export function initUpdater(onBeforeQuitForUpdate?: () => void): void {
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+
+  // electron-updater 的 quitAndInstall() 先 spawn NSIS 安装器,再在 setImmediate 里
+  // emit "before-quit-for-update" 然后 app.quit()。我们抢在这个 app.quit() 之前:
+  // 同步强杀同名 server 子进程并瞬时 app.exit(0)。否则主进程会被 before-quit 里
+  // server.stop() 的最长 3s await 卡住,安装器据此检测到存活的 Pi Coder.exe,
+  // 反复弹"无法关闭"对话框并卡住自动更新。该事件由 electron-updater 派发在
+  // Electron 内置的 autoUpdater(EventEmitter)上,而非 electron-updater 实例。
+  if (onBeforeQuitForUpdate) {
+    electronAutoUpdater.on("before-quit-for-update", onBeforeQuitForUpdate);
+  }
 
   let latestVersion = "";
 

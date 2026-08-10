@@ -58,7 +58,13 @@ if (!gotLock) {
       // Auto-update is a NON-CRITICAL feature: isolate init so an updater failure
       // cannot abort app startup.
       try {
-        initUpdater();
+        initUpdater(() => {
+          // 更新专用快速退出:同步强杀同名 server 子进程后立即退出,跳过 before-quit
+          // 里 server.stop() 的最长 3s 等待,赶在 NSIS 安装器检测之前让进程消失,
+          // 避免弹"无法关闭"对话框并卡住自动更新。
+          server?.killNow();
+          app.exit(0);
+        });
       } catch (err) {
         console.warn("[desktop] updater init failed", err);
       }
