@@ -2,6 +2,8 @@
 
 import { forwardRef, useState, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import { getFileIcon, FolderIcon } from "./FileIcons";
+import { ContextMenu, type ContextMenuItem } from "./ContextMenu";
+import { copyText } from "@/lib/clipboard";
 import {
   encodeFilePathForApi,
   getFileDirectory,
@@ -221,6 +223,7 @@ function TreeNode({
   highlightedPaths,
   gitStatusByPath,
   changedDirectoryPaths,
+  onItemContextMenu,
   t,
 }: {
   node: FileNode;
@@ -234,6 +237,7 @@ function TreeNode({
   highlightedPaths: Set<string>;
   gitStatusByPath: Map<string, GitFileStatus>;
   changedDirectoryPaths: Set<string>;
+  onItemContextMenu?: (fullPath: string, isDir: boolean, event: React.MouseEvent) => void;
   t: Translate;
 }) {
   const open = expandedPaths.has(node.fullPath);
@@ -284,6 +288,14 @@ function TreeNode({
     <div>
       <div
         onClick={handleClick}
+        onContextMenu={
+          onItemContextMenu
+            ? (e) => {
+                e.preventDefault();
+                onItemContextMenu(node.fullPath, node.isDir, e);
+              }
+            : undefined
+        }
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         style={{
@@ -437,6 +449,7 @@ function TreeNode({
               cwd={cwd}
               onOpenFile={onOpenFile}
               onAtMention={onAtMention}
+              onItemContextMenu={onItemContextMenu}
               expandedPaths={expandedPaths}
               onToggleExpanded={onToggleExpanded}
               refreshToken={refreshToken}
@@ -465,11 +478,13 @@ function ChangeRow({
   status,
   cwd,
   onOpenFile,
+  onItemContextMenu,
   t,
 }: {
   status: GitFileStatus;
   cwd: string;
   onOpenFile: OpenFileHandler;
+  onItemContextMenu?: (fullPath: string, isDir: boolean, event: React.MouseEvent) => void;
   t: Translate;
 }) {
   const [hovered, setHovered] = useState(false);
@@ -478,6 +493,14 @@ function ChangeRow({
   return (
     <div
       onClick={() => onOpenFile(status.filePath, name, { modeHint: "diff" })}
+      onContextMenu={
+        onItemContextMenu
+          ? (e) => {
+              e.preventDefault();
+              onItemContextMenu(status.filePath, false, e);
+            }
+          : undefined
+      }
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       title={status.filePath}
@@ -538,6 +561,9 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSummary, setUploadSummary] = useState<UploadSummary | null>(null);
   const [pendingConflict, setPendingConflict] = useState<PendingConflict | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; fullPath: string; isDir: boolean } | null>(null);
+  const [copiedMsg, setCopiedMsg] = useState<string | null>(null);
+  const copiedTimerRef = useRef<number | undefined>(undefined);
   const prevCwdRef = useRef<string | null>(null);
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const refreshToken = `${refreshKey ?? 0}:${treeRefreshKey}`;
@@ -726,6 +752,62 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
     );
   }, [cwd, onAtMentions, uploadSummary]);
 
+  const flashCopied = useCallback(() => {
+    setCopiedMsg(t("files.copied"));
+    window.clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = window.setTimeout(() => setCopiedMsg(null), 1500);
+  }, [t]);
+
+  const handleItemContextMenu = useCallback(
+    (fullPath: string, isDir: boolean, e: React.MouseEvent) => {
+      e.preventDefault();
+      setMenu({ x: e.clientX, y: e.clientY, fullPath, isDir });
+    },
+    [],
+  );
+
+  const handleCloseMenu = useCallback(() => setMenu(null), []);
+
+  useEffect(() => () => window.clearTimeout(copiedTimerRef.current), []);
+
+  // `Window.piDesktop` is only partially typed for the app (see SessionSidebar.tsx
+  // global declaration; the full `PiDesktopApi` lives in the excluded electron/
+  // tree), so access the desktop-only members via a cast like AppShell/useTheme.
+  const desktop = typeof window !== "undefined"
+    ? (window as unknown as {
+        piDesktop?: {
+          isDesktop?: boolean;
+          openInFileManager?: (fullPath: string, isDir: boolean) => Promise<unknown>;
+        };
+      }).piDesktop
+    : undefined;
+  const isDesktop = desktop?.isDesktop === true;
+
+  const menuItems: ContextMenuItem[] = menu
+    ? [
+        ...(isDesktop
+          ? [{
+              label: t("files.openInFileManager"),
+              onClick: () => {
+                void desktop?.openInFileManager?.(menu.fullPath, menu.isDir);
+              },
+            }]
+          : []),
+        {
+          label: t("files.copyRelativePath"),
+          onClick: () => {
+            void copyText(getRelativeFilePath(menu.fullPath, cwd)).then(flashCopied);
+          },
+        },
+        {
+          label: t("files.copyAbsolutePath"),
+          onClick: () => {
+            void copyText(normalizeFilePathSlashes(menu.fullPath)).then(flashCopied);
+          },
+        },
+      ]
+    : [];
+
   return (
     <div style={{ minHeight: "100%" }}>
       <input ref={uploadInputRef} type="file" multiple hidden onChange={handleUploadInput} />
@@ -864,7 +946,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
             <span style={{ color: GIT_STATUS_COLORS.deleted, fontFamily: "var(--font-mono)" }}>-{gitLineStats.deletions}</span>
           </div>
           {gitFiles.map((status) => (
-            <ChangeRow key={status.filePath} status={status} cwd={cwd} onOpenFile={onOpenFile} t={t} />
+            <ChangeRow key={status.filePath} status={status} cwd={cwd} onOpenFile={onOpenFile} onItemContextMenu={handleItemContextMenu} t={t} />
           ))}
         </div>
       )}
@@ -884,6 +966,7 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
                 cwd={cwd}
                 onOpenFile={onOpenFile}
                 onAtMention={onAtMention}
+                onItemContextMenu={handleItemContextMenu}
                 expandedPaths={expandedPaths}
                 onToggleExpanded={handleToggleExpanded}
                 refreshToken={refreshToken}
@@ -899,6 +982,32 @@ export const FileExplorer = forwardRef<FileExplorerHandle, Props>(function FileE
               {t("files.noFiles")}
             </div>
           )}
+        </div>
+      )}
+      {menu && (
+        <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={handleCloseMenu} />
+      )}
+      {copiedMsg && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: 24,
+            transform: "translateX(-50%)",
+            padding: "6px 12px",
+            background: "var(--bg-panel)",
+            border: "1px solid var(--border)",
+            borderRadius: 6,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+            color: "var(--text)",
+            fontSize: 12,
+            zIndex: 100001,
+            pointerEvents: "none",
+          }}
+        >
+          {copiedMsg}
         </div>
       )}
     </div>
