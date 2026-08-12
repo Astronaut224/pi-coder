@@ -5,6 +5,19 @@ import type { SessionInfo } from "@/lib/types";
 import { useI18n } from "@/hooks/useI18n";
 import { DirectoryPicker } from "./DirectoryPicker";
 import { FileExplorer, type FileExplorerHandle } from "./FileExplorer";
+import { ContextMenu } from "./ContextMenu";
+import {
+  getConversationDisplayStatus,
+  getTimeGroupKey,
+  loadSessionMarks,
+  saveSessionMarks,
+  setConversationMark,
+  TIME_GROUP_ORDER,
+  type ConversationMark,
+  type ConversationMarkMap,
+  type ConversationStatusType,
+  type TimeGroupKey,
+} from "@/lib/conversation-status";
 
 declare global {
   interface Window {
@@ -271,7 +284,7 @@ function AnimatedDropdown({ open, children, style }: { open: boolean; children: 
 
 /**
  * Collapsible section header with a rotating chevron + count badge. Mirrors the
- * File Explorer section header so the session list's 置顶/最近 groups feel native.
+ * File Explorer section header so the session list's 置顶/time-group sections feel native.
  * The body is rendered by the parent (guarded by its own collapsed check) so the
  * header can stay mounted for collapsing animation.
  */
@@ -505,7 +518,15 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
   const [unreadSessionIds, setUnreadSessionIds] = useState<Set<string>>(() => loadUnreadSessionIds());
   const [pinnedSessionIds, setPinnedSessionIds] = useState<Set<string>>(() => loadPinnedSessionIds());
   const [pinnedCollapsed, setPinnedCollapsed] = useState(false);
-  const [recentCollapsed, setRecentCollapsed] = useState(false);
+  const [sessionMarks, setSessionMarks] = useState<ConversationMarkMap>(() => loadSessionMarks());
+  // Per-bucket collapse state for 今天/昨天/最近7天/最近30天/更早.
+  const [timeGroupsCollapsed, setTimeGroupsCollapsed] = useState<Record<TimeGroupKey, boolean>>({
+    today: false,
+    yesterday: false,
+    last7: false,
+    last30: false,
+    earlier: false,
+  });
   const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
   // Once polling has delivered a snapshot it is the source of truth for
   // running state; late /api/sessions responses must not overwrite it.
@@ -539,6 +560,18 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         const next = new Set([...prev].filter((id) => existingIds.has(id)));
         return next.size === prev.size ? prev : next;
       });
+      // Drop manual marks (完成/待定) for sessions that no longer exist.
+      setSessionMarks((prev) => {
+        const ids = Object.keys(prev);
+        if (ids.length === 0) return prev;
+        const next: ConversationMarkMap = {};
+        let changed = false;
+        for (const id of ids) {
+          if (existingIds.has(id)) next[id] = prev[id];
+          else changed = true;
+        }
+        return changed ? next : prev;
+      });
       setError(null);
       if (!showLoading) {
         setSessionRefreshDone(true);
@@ -565,10 +598,16 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
     saveUnreadSessionIds(unreadSessionIds);
   }, [unreadSessionIds]);
 
-  // Persist pinned session ids so the 置顶/最近 grouping survives a refresh.
+  // Persist pinned session ids so the 置顶/time-group sections survive a refresh.
   useEffect(() => {
     savePinnedSessionIds(pinnedSessionIds);
   }, [pinnedSessionIds]);
+
+  // Persist manual marks (完成/待定) so they survive a refresh; "讨论中" is
+  // derived from live running state and is never persisted here.
+  useEffect(() => {
+    saveSessionMarks(sessionMarks);
+  }, [sessionMarks]);
 
   const togglePin = useCallback((sessionId: string) => {
     setPinnedSessionIds((prev) => {
@@ -974,12 +1013,22 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
         }
       : null);
 
-  // Build parent-child trees for each group within the filtered set
+  // Build parent-child trees within the filtered set. Pinned sessions live in
+  // their own 置顶 section; everything else is split into time buckets by the
+  // ROOT session's last activity (modified), so each fork subtree stays in the
+  // same bucket and children are never duplicated across groups.
   const pinnedSessions = filteredSessions.filter((s) => pinnedSessionIds.has(s.id));
-  const recentSessions = filteredSessions.filter((s) => !pinnedSessionIds.has(s.id));
+  const nonPinnedSessions = filteredSessions.filter((s) => !pinnedSessionIds.has(s.id));
   const pinnedTree = buildSessionTree(pinnedSessions);
-  const recentTree = buildSessionTree(recentSessions);
+  const nonPinnedTree = buildSessionTree(nonPinnedSessions);
   const hasPinned = pinnedTree.length > 0;
+
+  const timeGroups = new Map<TimeGroupKey, SessionTreeNode[]>(TIME_GROUP_ORDER.map((key) => [key, []]));
+  for (const root of nonPinnedTree) {
+    const key = getTimeGroupKey(root.session.modified);
+    timeGroups.get(key)!.push(root);
+  }
+  const visibleTimeGroups = TIME_GROUP_ORDER.filter((key) => (timeGroups.get(key)?.length ?? 0) > 0);
 
   const renderNodes = (nodes: SessionTreeNode[]) => nodes.map((node) => (
     <SessionTreeItem
@@ -989,9 +1038,11 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
       runningSessionIds={runningSessionIds}
       unreadSessionIds={unreadSessionIds}
       pinnedSessionIds={pinnedSessionIds}
+      sessionMarks={sessionMarks}
       onSelectSession={handleSelectSessionFromList}
       onRenamed={loadSessions}
       onTogglePin={togglePin}
+      onSetMark={(id, mark) => setSessionMarks((prev) => setConversationMark(prev, id, mark))}
       onSessionDeleted={(id) => {
         onSessionDeleted?.(id);
         loadSessions();
@@ -1679,14 +1730,17 @@ export function SessionSidebar({ selectedSessionId, onSelectSession, onNewSessio
                 {!pinnedCollapsed && renderNodes(pinnedTree)}
               </CollapsibleSection>
             )}
-            <CollapsibleSection
-              label={t("sidebar.recent")}
-              count={countTreeNodes(recentTree)}
-              collapsed={recentCollapsed}
-              onToggle={() => setRecentCollapsed((v) => !v)}
-            >
-              {!recentCollapsed && renderNodes(recentTree)}
-            </CollapsibleSection>
+            {visibleTimeGroups.map((key) => (
+              <CollapsibleSection
+                key={key}
+                label={t(`sidebar.timeGroup.${key}`)}
+                count={countTreeNodes(timeGroups.get(key)!)}
+                collapsed={timeGroupsCollapsed[key]}
+                onToggle={() => setTimeGroupsCollapsed((prev) => ({ ...prev, [key]: !prev[key] }))}
+              >
+                {!timeGroupsCollapsed[key] && renderNodes(timeGroups.get(key)!)}
+              </CollapsibleSection>
+            ))}
           </>
         )}
       </div>
@@ -1814,9 +1868,11 @@ function SessionTreeItem({
   runningSessionIds,
   unreadSessionIds,
   pinnedSessionIds,
+  sessionMarks,
   onSelectSession,
   onRenamed,
   onTogglePin,
+  onSetMark,
   onSessionDeleted,
   depth,
 }: {
@@ -1825,9 +1881,11 @@ function SessionTreeItem({
   runningSessionIds: Set<string>;
   unreadSessionIds: Set<string>;
   pinnedSessionIds: Set<string>;
+  sessionMarks: ConversationMarkMap;
   onSelectSession: (s: SessionInfo) => void;
   onRenamed?: () => void;
   onTogglePin?: (sessionId: string) => void;
+  onSetMark: (sessionId: string, mark: ConversationMark | null) => void;
   onSessionDeleted?: (id: string) => void;
   depth: number;
 }) {
@@ -1851,12 +1909,14 @@ function SessionTreeItem({
         <SessionItem
           session={node.session}
           isSelected={node.session.id === selectedSessionId}
-          isRunning={runningSessionIds.has(node.session.id)}
+          runningSessionIds={runningSessionIds}
           isUnread={unreadSessionIds.has(node.session.id)}
           isPinned={pinnedSessionIds.has(node.session.id)}
+          sessionMarks={sessionMarks}
           onClick={() => onSelectSession(node.session)}
           onRenamed={onRenamed}
           onTogglePin={onTogglePin}
+          onSetMark={onSetMark}
           onDeleted={(id) => onSessionDeleted?.(id)}
           depth={depth}
           hasChildren={hasChildren}
@@ -1874,9 +1934,11 @@ function SessionTreeItem({
               runningSessionIds={runningSessionIds}
               unreadSessionIds={unreadSessionIds}
               pinnedSessionIds={pinnedSessionIds}
+              sessionMarks={sessionMarks}
               onSelectSession={onSelectSession}
               onRenamed={onRenamed}
               onTogglePin={onTogglePin}
+              onSetMark={onSetMark}
               onSessionDeleted={onSessionDeleted}
               depth={depth + 1}
             />
@@ -1887,41 +1949,79 @@ function SessionTreeItem({
   );
 }
 
-function RunningSessionIndicator() {
+/**
+ * Status badge for the session meta row. Display priority is centralized in
+ * getConversationDisplayStatus(): 讨论中 (derived running state) > 完成/待定
+ * (manual marks) > nothing. Colors are the same semantic shades already used
+ * across the sidebar (cyan = info, green = success, amber = warning).
+ */
+function SessionStatusBadge({ status }: { status: ConversationStatusType }) {
   const { t } = useI18n();
+  if (status === "discussing") {
+    return (
+      <span
+        title={t("sidebar.status.discussing")}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 4,
+          flexShrink: 0,
+          color: "#0891b2",
+          fontWeight: 500,
+        }}
+      >
+        {/* MessageCircle — the 💬 glyph, matching the spec */}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block" }}>
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+        </svg>
+        {/* Subtle pulse — reuses the existing unread/running animation idiom */}
+        <span style={{ width: 6, height: 6, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="6" height="6" viewBox="0 0 6 6" fill="none" aria-hidden="true" style={{ display: "block" }}>
+            <circle cx="3" cy="3" r="1.6" fill="currentColor" />
+            <circle cx="3" cy="3" r="2.4" stroke="currentColor" strokeWidth="1" opacity="0.35">
+              <animate attributeName="r" values="2.4;5;2.4" dur="1.6s" repeatCount="indefinite" />
+              <animate attributeName="opacity" values="0.35;0;0.35" dur="1.6s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+        </span>
+        {t("sidebar.status.discussing")}
+      </span>
+    );
+  }
+  if (status === "completed") {
+    return (
+      <span
+        title={t("sidebar.status.completed")}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0, color: "#16a34a", fontWeight: 500 }}
+      >
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block" }}>
+          <circle cx="12" cy="12" r="10" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+        {t("sidebar.status.completed")}
+      </span>
+    );
+  }
   return (
     <span
-      title={t("sidebar.agentRunning")}
-      aria-label={t("sidebar.agentRunning")}
-      style={{
-        width: 14,
-        height: 14,
-        display: "inline-flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        color: "var(--accent)",
-      }}
+      title={t("sidebar.status.pending")}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0, color: "#d97706", fontWeight: 500 }}
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true" style={{ display: "block" }}>
-        <g>
-          <path
-            d="M21 12a9 9 0 1 1-3.8-7.4"
-            stroke="currentColor"
-            strokeWidth="2.8"
-            strokeLinecap="round"
-          />
-          <animateTransform
-            attributeName="transform"
-            type="rotate"
-            from="0 12 12"
-            to="360 12 12"
-            dur="0.9s"
-            repeatCount="indefinite"
-          />
-        </g>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: "block" }}>
+        <circle cx="12" cy="12" r="10" />
+        <polyline points="12 6 12 12 16 14" />
       </svg>
+      {t("sidebar.status.pending")}
     </span>
+  );
+}
+
+/** Check glyph for the status menu's currently-selected option. */
+function StatusMenuCheck() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
   );
 }
 
@@ -1955,12 +2055,14 @@ function UnreadSessionIndicator() {
 function SessionItem({
   session,
   isSelected,
-  isRunning,
+  runningSessionIds,
   isUnread,
   isPinned,
+  sessionMarks,
   onClick,
   onRenamed,
   onTogglePin,
+  onSetMark,
   onDeleted,
   depth = 0,
   hasChildren = false,
@@ -1969,12 +2071,14 @@ function SessionItem({
 }: {
   session: SessionInfo;
   isSelected: boolean;
-  isRunning?: boolean;
+  runningSessionIds: Set<string>;
   isUnread?: boolean;
   isPinned?: boolean;
+  sessionMarks: ConversationMarkMap;
   onClick: () => void;
   onRenamed?: () => void;
   onTogglePin?: (sessionId: string) => void;
+  onSetMark: (sessionId: string, mark: ConversationMark | null) => void;
   onDeleted?: (id: string) => void;
   depth?: number;
   hasChildren?: boolean;
@@ -1987,7 +2091,15 @@ function SessionItem({
   const [renameValue, setRenameValue] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [statusMenu, setStatusMenu] = useState<{ x: number; y: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Display status is derived centrally: running (讨论中) wins over a manual
+  // mark, and an idle unmarked session shows nothing. The manual mark itself is
+  // kept untouched while a task runs so it resurfaces after the run ends.
+  const mark = sessionMarks[session.id] ?? null;
+  const displayStatus = getConversationDisplayStatus(session.id, mark, runningSessionIds);
+  const isRunning = runningSessionIds.has(session.id);
 
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12);
 
@@ -2167,14 +2279,11 @@ function SessionItem({
               </span>
             </div>
             <div style={{ marginTop: 2, display: "flex", alignItems: "center", gap: 8, color: "var(--text-dim)", fontSize: 11, minWidth: 0 }}>
-              {isRunning ? (
-                <RunningSessionIndicator />
-              ) : isUnread ? (
-                <UnreadSessionIndicator />
-              ) : (
-                <span title={session.modified}>{formatRelativeTime(session.modified)}</span>
-              )}
-              <span>{t("sidebar.messagesCount", { count: session.messageCount })}</span>
+              <span title={session.modified} style={{ display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                {isUnread && <UnreadSessionIndicator />}
+                {formatRelativeTime(session.modified)}
+              </span>
+              <span style={{ flexShrink: 0 }}>{t("sidebar.messagesCount", { count: session.messageCount })}</span>
               {session.worktreeBranch && (
                 <span
                   title={`Worktree: ${session.cwd}`}
@@ -2189,6 +2298,7 @@ function SessionItem({
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{session.worktreeBranch}</span>
                 </span>
               )}
+              {displayStatus && <SessionStatusBadge status={displayStatus} />}
             </div>
           </div>
 
@@ -2272,6 +2382,45 @@ function SessionItem({
                   <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
                 </svg>
               </button>
+              {/* Manual mark menu — hidden while the session is running (讨论中):
+                  an executing session must not be marked 完成/待定 at the same time. */}
+              {!isRunning && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setStatusMenu({ x: rect.left, y: rect.bottom + 4 });
+                  }}
+                  title={t("sidebar.status.title")}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    width: 32, height: 32, padding: 0,
+                    background: "var(--bg-hover)", border: "1px solid var(--border)",
+                    borderRadius: 7, color: mark ? "var(--accent)" : "var(--text-muted)",
+                    cursor: "pointer", flexShrink: 0,
+                    transition: "background 0.12s, color 0.12s, border-color 0.12s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "var(--bg-selected)";
+                    e.currentTarget.style.color = "var(--accent)";
+                    e.currentTarget.style.borderColor = "rgba(242,140,40,0.35)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "var(--bg-hover)";
+                    e.currentTarget.style.color = mark ? "var(--accent)" : "var(--text-muted)";
+                    e.currentTarget.style.borderColor = "var(--border)";
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8 6h13" />
+                    <path d="M8 12h13" />
+                    <path d="M8 18h13" />
+                    <path d="M3 6h.01" />
+                    <path d="M3 12h.01" />
+                    <path d="M3 18h.01" />
+                  </svg>
+                </button>
+              )}
               <button
                 onClick={handleDeleteClick}
                 title={t("sidebar.deleteWithShiftClick")}
@@ -2304,6 +2453,32 @@ function SessionItem({
             </div>
           )}
         </>
+      )}
+      {/* Manual mark menu (无标记 / 完成 / 待定) — portaled to body so it is
+          never clipped by the row's overflow. Only reachable when idle. */}
+      {statusMenu && (
+        <ContextMenu
+          x={statusMenu.x}
+          y={statusMenu.y}
+          onClose={() => setStatusMenu(null)}
+          items={[
+            {
+              label: t("sidebar.status.none"),
+              icon: mark === null ? <StatusMenuCheck /> : <span style={{ width: 14 }} />,
+              onClick: () => onSetMark(session.id, null),
+            },
+            {
+              label: t("sidebar.status.completed"),
+              icon: mark === "completed" ? <StatusMenuCheck /> : <span style={{ width: 14 }} />,
+              onClick: () => onSetMark(session.id, "completed"),
+            },
+            {
+              label: t("sidebar.status.pending"),
+              icon: mark === "pending" ? <StatusMenuCheck /> : <span style={{ width: 14 }} />,
+              onClick: () => onSetMark(session.id, "pending"),
+            },
+          ]}
+        />
       )}
     </div>
   );
