@@ -18,7 +18,11 @@ export function registerIpc(): void {
 
   // Renderer pushes the resolved --bg-panel so the Windows titleBarOverlay
   // recolors with the active theme / light-dark mode.
+  // setTitleBarOverlay only exists on win32 (and linux); the window is only
+  // created with a titleBarOverlay on Windows, so guard with the same isWin
+  // check as window.ts to avoid "setTitleBarOverlay is not a function" on macOS.
   ipcMain.on("desktop:set-title-bar-overlay", (event, payload: { color?: unknown }) => {
+    if (process.platform !== "win32") return;
     const color = typeof payload?.color === "string" ? payload.color : undefined;
     if (!color) return;
     const win = BrowserWindow.fromWebContents(event.sender) ?? getMainWindow();
