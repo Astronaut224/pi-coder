@@ -2,21 +2,25 @@
 
 import { useState, useCallback, useRef } from "react";
 
+// Accept any file drag (images attach as before; other files become @ path
+// references). Text/HTML string drags are excluded so in-textarea selection
+// drags never trigger the drop zone.
+const hasFileItems = (e: React.DragEvent): boolean =>
+  Array.from(e.dataTransfer.items).some((item) => item.kind === "file");
+
 export function useDragDrop(onDrop: (files: File[]) => void) {
   const [isDragOver, setIsDragOver] = useState(false);
   const counterRef = useRef(0);
 
   const handleDragEnter = useCallback((e: React.DragEvent) => {
-    const hasImages = Array.from(e.dataTransfer.items).some((item) => item.type.startsWith("image/"));
-    if (!hasImages) return;
+    if (!hasFileItems(e)) return;
     e.preventDefault();
     counterRef.current += 1;
     setIsDragOver(true);
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
-    const hasImages = Array.from(e.dataTransfer.items).some((item) => item.type.startsWith("image/"));
-    if (!hasImages) return;
+    if (!hasFileItems(e)) return;
     e.preventDefault();
   }, []);
 

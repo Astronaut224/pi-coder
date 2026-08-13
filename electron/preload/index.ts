@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { UpdateStatus } from "../main/updater";
 
 const api = {
@@ -25,6 +25,19 @@ const api = {
   /** 在系统文件管理器中显示/打开路径(桌面端)。 */
   openInFileManager: (fullPath: string, isDir: boolean) =>
     ipcRenderer.invoke("desktop:openInFileManager", fullPath, isDir),
+  /**
+   * 解析从系统文件管理器拖入的 File 对象对应的磁盘绝对路径(桌面端)。
+   * 取代已弃用的 File.path,在 sandbox 渲染进程中同样可用。File 对象经
+   * contextBridge 传入后其原生 backing 仍可被 webUtils 读取。返回 "" 表示
+   * 该 File 并非磁盘文件(如 JS 构造的 Blob)。
+   */
+  getPathForFile: (file: File): string => {
+    try {
+      return webUtils.getPathForFile(file);
+    } catch {
+      return "";
+    }
+  },
 };
 
 contextBridge.exposeInMainWorld("piDesktop", api);

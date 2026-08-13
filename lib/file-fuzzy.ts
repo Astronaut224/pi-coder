@@ -184,6 +184,39 @@ export function buildFileLineMentionText(entryPath: string, startLine: number, e
   return `${pathMention}${lineSuffix} `;
 }
 
+/**
+ * Compute the path to embed in an @ mention for a file dropped from the OS
+ * file manager. Electron exposes a `.path` property on dropped `File` objects
+ * holding the absolute filesystem path; a pure browser does not, and this
+ * returns null so the caller can skip.
+ *
+ * Returns a forward-slash path relative to the session `cwd` when the file
+ * lives under it, otherwise the forward-slash absolute path. The Windows
+ * comparison is case-insensitive (drive letter + segments), but the returned
+ * string keeps the original casing of the dropped path.
+ */
+export function relativePathForMention(
+  absPath: string | undefined | null,
+  cwd: string | undefined | null,
+): string | null {
+  if (!absPath) return null;
+  const norm = (p: string) => p.replace(/\\/g, "/").replace(/\/+$/, "");
+  const file = norm(absPath);
+  if (!cwd) return file;
+  const base = norm(cwd);
+  const isWin = /^[A-Za-z]:\//.test(file) || file.startsWith("//");
+  const fileCmp = isWin ? file.toLowerCase() : file;
+  const baseCmp = isWin ? base.toLowerCase() : base;
+  if (fileCmp === baseCmp) return ".";
+  const prefix = baseCmp + "/";
+  if (fileCmp.startsWith(prefix)) {
+    return file.slice(prefix.length);
+  }
+  // Not under cwd: return the forward-slash absolute path so the user still
+  // sees what they dropped and can edit it before sending.
+  return file;
+}
+
 export function buildFileAtMentionsText(entryPaths: string[]): string {
   return entryPaths.map((entryPath) => buildAtMentionText(entryPath, false)).join("");
 }
