@@ -24,6 +24,7 @@ import {
   restoreScrollTop,
   VISIBLE_PAGE_SIZE,
 } from "@/lib/chat-lazy-load";
+import { buildFileAtMentionsText, relativePathForMention } from "@/lib/file-fuzzy";
 
 interface Props {
   session: SessionInfo | null;
@@ -49,6 +50,8 @@ interface Props {
   onSoundToggle?: () => void;
   playDoneSound?: () => void;
   unlockAudio?: () => void;
+  /** Composer footer rendered below the input box (icon-only toolbar + session stats) */
+  composerFooter?: React.ReactNode;
 }
 
 function phaseLabel(phase: AgentPhase, t: (key: string, params?: Record<string, string | number>) => string): string | null {
@@ -67,6 +70,25 @@ function phaseLabel(phase: AgentPhase, t: (key: string, params?: Record<string, 
 const CHAT_MINIMAP_WIDTH = 36;
 const CHAT_COLUMN_PADDING = 16;
 const CHAT_INPUT_RIGHT_PADDING = CHAT_COLUMN_PADDING + CHAT_MINIMAP_WIDTH;
+
+/**
+ * Resolve the on-disk absolute path of a File dropped from the OS file
+ * manager. Electron's `webUtils.getPathForFile` (exposed on window.piDesktop
+ * from the preload) is the sandbox-safe replacement for the deprecated
+ * `File.path`; the direct `.path` fallback covers older / non-sandbox
+ * builds. Pure browsers expose neither and return "".
+ */
+function resolveDroppedFilePath(file: File): string {
+  if (typeof window !== "undefined") {
+    const desktop = (window as unknown as {
+      piDesktop?: { getPathForFile?: (file: File) => string };
+    }).piDesktop;
+    const viaWebUtils = desktop?.getPathForFile?.(file);
+    if (viaWebUtils) return viaWebUtils;
+  }
+  const direct = (file as File & { path?: string }).path;
+  return direct ?? "";
+}
 
 function NewSessionUpdateLink({
   label,
@@ -247,7 +269,7 @@ function ProcessDetailsGroup({ messageCount, toolCallCount, defaultExpanded = fa
   );
 }
 
-export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionDraftKey, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemPromptLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onContextUsageChange, onOpenFile, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio }: Props) {
+export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionDraftKey, onAgentEnd, onAttentionNeeded, onSessionCreated, onSessionForked, modelsRefreshKey, chatInputRef, onBranchDataChange, onSystemPromptChange, onSystemPromptLoaderChange, onSessionStatsChange, onSessionStatsPanelOpen, onContextUsageChange, onOpenFile, soundEnabled = true, onSoundToggle, playDoneSound = () => {}, unlockAudio, composerFooter }: Props) {
   const { t } = useI18n();
   const isMobile = useIsMobile();
 
@@ -382,8 +404,26 @@ export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionD
   useEffect(() => () => { onContextUsageChange?.(null); }, [onContextUsageChange]);
 
   const onDrop = useCallback((files: File[]) => {
-    chatInputRef?.current?.addImages(files);
-  }, [chatInputRef]);
+    const cwd = session?.cwd ?? newSessionCwd ?? undefined;
+    const images: File[] = [];
+    const referenced: string[] = [];
+    for (const file of files) {
+      if (file.type.startsWith("image/")) {
+        images.push(file);
+        continue;
+      }
+      // Electron desktop: resolve the on-disk absolute path via
+      // webUtils.getPathForFile (exposed on window.piDesktop), which is the
+      // sandbox-safe replacement for the deprecated File.path. Fall back to
+      // File.path for older/non-sandbox builds. Pure browsers expose neither,
+      // so such files are skipped rather than silently swallowed.
+      const absPath = resolveDroppedFilePath(file);
+      const rel = relativePathForMention(absPath, cwd);
+      if (rel) referenced.push(rel);
+    }
+    if (images.length) chatInputRef?.current?.addImages(images);
+    if (referenced.length) chatInputRef?.current?.insertText(buildFileAtMentionsText(referenced));
+  }, [chatInputRef, session, newSessionCwd]);
 
   const { isDragOver, handleDragEnter, handleDragOver, handleDragLeave, handleDrop } = useDragDrop(onDrop);
 
@@ -569,6 +609,7 @@ export function ChatWindow({ session, sessionRunning, newSessionCwd, newSessionD
       onAudioUnlock={unlockAudio}
       draftKey={session?.id ?? newSessionDraftKey ?? undefined}
       cwd={session?.cwd ?? newSessionCwd}
+      composerFooter={composerFooter}
     />
   );
 

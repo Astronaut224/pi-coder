@@ -183,6 +183,9 @@ export function AppShell() {
   }, [reclampRightPanelWidth, reclampSidebarWidth, rightPanelOpen]);
   const chatInputRef = useRef<ChatInputHandle | null>(null);
   const topBarRef = useRef<HTMLDivElement>(null);
+  /** Anchors the composer footer (icon-only toolbar + session stats) and the
+   *  system/session/branches panels that open upward from it. */
+  const composerFooterRef = useRef<HTMLDivElement>(null);
   const mobileToolbarRef = useRef<HTMLDivElement>(null);
   const languageBtnRef = useRef<HTMLButtonElement>(null);
   const themeBtnRef = useRef<HTMLButtonElement>(null);
@@ -253,7 +256,7 @@ export function AppShell() {
 
   // Single active panel — only one dropdown open at a time
   const [activeTopPanel, setActiveTopPanel] = useState<"branches" | "system" | "session" | "language" | "theme" | null>(null);
-  const [topPanelPos, setTopPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [topPanelPos, setTopPanelPos] = useState<{ top?: number; bottom?: number; left: number; width: number } | null>(null);
 
   const toggleTopPanel = useCallback((
     panel: "branches" | "system" | "session" | "language" | "theme",
@@ -339,9 +342,24 @@ export function AppShell() {
   }, [isMobile, selectedSession?.id, newSessionDraftId]);
 
   useEffect(() => {
-    if (!activeTopPanel || !topBarRef.current) return;
+    // Branches panel is rendered inline by <BranchNavigator/> with its own
+    // positioning, so the shared dropdown never needs a position for it.
+    if (!activeTopPanel || activeTopPanel === "branches") return;
+    // Desktop system/session panels anchor to the composer footer and open
+    // upward; mobile keeps the top-bar (downward) behavior for those panels.
+    const footerPanel = !isMobile && (activeTopPanel === "system" || activeTopPanel === "session");
+    const anchorRef = footerPanel ? composerFooterRef : topBarRef;
     const update = () => {
-      const topBarRect = topBarRef.current!.getBoundingClientRect();
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      if (footerPanel) {
+        // Full chat-column width (matches the original top-bar dropdown),
+        // opening upward from the composer footer.
+        const barRect = topBarRef.current?.getBoundingClientRect();
+        setTopPanelPos({ bottom: window.innerHeight - anchorRect.top, left: barRect?.left ?? anchorRect.left, width: barRect?.width ?? anchorRect.width });
+        return;
+      }
       // Language and theme are narrow menus anchored to their toolbar button.
       const narrowBtn =
         activeTopPanel === "language" ? languageBtnRef.current
@@ -350,19 +368,20 @@ export function AppShell() {
       if (narrowBtn && !isMobile) {
         const narrowWidth = activeTopPanel === "language" ? LANGUAGE_MENU_WIDTH : THEME_MENU_WIDTH;
         const buttonRect = narrowBtn.getBoundingClientRect();
-        const width = Math.min(narrowWidth, topBarRect.width);
+        const width = Math.min(narrowWidth, anchorRect.width);
         const left = Math.min(
           buttonRect.left - 1,
-          Math.max(topBarRect.left, topBarRect.right - width),
+          Math.max(anchorRect.left, anchorRect.right - width),
         );
-        setTopPanelPos({ top: topBarRect.bottom, left, width });
+        setTopPanelPos({ top: anchorRect.bottom, left, width });
         return;
       }
-      setTopPanelPos({ top: topBarRect.bottom, left: topBarRect.left, width: topBarRect.width });
+      setTopPanelPos({ top: anchorRect.bottom, left: anchorRect.left, width: anchorRect.width });
     };
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(topBarRef.current);
+    if (anchorRef.current) ro.observe(anchorRef.current);
+    if (topBarRef.current) ro.observe(topBarRef.current);
     if (languageBtnRef.current) ro.observe(languageBtnRef.current);
     if (themeBtnRef.current) ro.observe(themeBtnRef.current);
     return () => ro.disconnect();
@@ -386,9 +405,12 @@ export function AppShell() {
     };
     const onPointerDown = (e: PointerEvent) => {
       const target = e.target as Node | null;
-      if (target && topBarRef.current && !topBarRef.current.contains(target)) {
-        setActiveTopPanel(null);
-      }
+      if (!target) return;
+      // Keep clicks inside the top bar, the composer footer (icon-only toolbar +
+      // inline branch dropdown), or any panel rendered within those subtrees.
+      if (topBarRef.current?.contains(target)) return;
+      if (composerFooterRef.current?.contains(target)) return;
+      setActiveTopPanel(null);
     };
 
     // Capture phase so this Escape wins over the global agent-stop handler,
@@ -1407,6 +1429,134 @@ export function AppShell() {
     );
   };
 
+  /** Icon-only composer footer (desktop): history / title / branch / system.
+   *  Panels open upward from the footer (see composerFooterRef anchoring). */
+  const renderComposerFooterLeft = () => {
+    if (!showChat) return null;
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 2, height: 32 }}>
+        {/* History */}
+        <button
+          type="button"
+          onClick={() => handleViewFullHistory()}
+          disabled={!selectedSession}
+          title={selectedSession ? translate("history.full") : translate("history.unsaved")}
+          aria-label={translate("history.full")}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "8px 12px", height: 32,
+            background: "none", border: "none", borderRadius: 9,
+            color: selectedSession ? "var(--text-muted)" : "var(--text-dim)",
+            cursor: selectedSession ? "pointer" : "not-allowed",
+            opacity: selectedSession ? 1 : 0.45,
+            flexShrink: 0, transition: "color 0.1s, background 0.1s",
+          }}
+          onMouseEnter={(e) => { if (selectedSession) { e.currentTarget.style.color = "var(--text)"; e.currentTarget.style.background = "var(--bg-hover)"; } }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = selectedSession ? "var(--text-muted)" : "var(--text-dim)"; e.currentTarget.style.background = "none"; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M12 7v5l3 2" />
+          </svg>
+        </button>
+        {/* Title / auto-name */}
+        {(() => {
+          const hasMessages = Boolean(
+            selectedSession && ((sessionStats?.userMessages ?? 0) > 0 || selectedSession.messageCount > 0),
+          );
+          const disabled = !selectedSession || selectedSession.transient || !hasMessages || autoNameStatus.kind === "naming";
+          const isSuccess = autoNameStatus.kind === "success";
+          const isError = autoNameStatus.kind === "error";
+          const title = !selectedSession || selectedSession.transient
+            ? translate("title.unsaved")
+            : !hasMessages
+              ? translate("title.noMessages")
+              : isError
+                ? autoNameStatus.message
+                : translate("title.generateSession");
+          return (
+            <button
+              type="button"
+              onClick={() => { void handleAutoName(); }}
+              disabled={disabled}
+              title={title}
+              aria-label={translate("title.generate")}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                padding: "8px 12px", height: 32,
+                background: "none", border: "none", borderRadius: 9,
+                color: isError ? "#dc2626" : isSuccess ? "var(--accent)" : disabled ? "var(--text-dim)" : "var(--text-muted)",
+                cursor: disabled ? "not-allowed" : "pointer",
+                opacity: disabled && autoNameStatus.kind !== "naming" ? 0.45 : 1,
+                flexShrink: 0, transition: "color 0.1s, background 0.1s",
+              }}
+              onMouseEnter={(e) => { if (!disabled) { e.currentTarget.style.color = isError ? "#dc2626" : "var(--text)"; e.currentTarget.style.background = "var(--bg-hover)"; } }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = isError ? "#dc2626" : isSuccess ? "var(--accent)" : disabled ? "var(--text-dim)" : "var(--text-muted)"; e.currentTarget.style.background = "none"; }}
+            >
+              {autoNameStatus.kind === "naming" ? (
+                <svg className="animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.25" />
+                  <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              ) : isSuccess ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="m15 4 5 5L7 22l-5-5Z" />
+                  <path d="m14 5 5 5" />
+                  <path d="M6 4V2M5 3H3M19 19v3M17.5 20.5h3" />
+                </svg>
+              )}
+            </button>
+          );
+        })()}
+        {/* Branches — inline navigator, opens upward */}
+        <BranchNavigator
+          tree={branchTree}
+          activeLeafId={branchActiveLeafId}
+          onLeafChange={handleBranchLeafChange}
+          inline
+          compact
+          dropUp
+          containerRef={topBarRef}
+          bottomAnchorRef={composerFooterRef}
+          open={activeTopPanel === "branches"}
+          onToggle={() => toggleTopPanel("branches")}
+          hasSession={showChat}
+        />
+        {/* System prompt */}
+        <button
+          type="button"
+          onClick={() => handleSystemPromptToggle(false)}
+          title={translate("system.prompt")}
+          aria-label={translate("system.prompt")}
+          aria-pressed={activeTopPanel === "system"}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: "8px 12px", height: 32,
+            background: activeTopPanel === "system" ? "var(--bg-hover)" : "none",
+            border: "none", borderRadius: 9,
+            cursor: "pointer",
+            color: activeTopPanel === "system" ? "var(--text)" : "var(--text-muted)",
+            fontSize: 12, transition: "color 0.1s, background 0.1s",
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = activeTopPanel === "system" ? "var(--text)" : "var(--text-muted)"; }}
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: systemPrompt ? "var(--accent)" : "var(--text-dim)", flexShrink: 0 }} aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="8" y1="13" x2="16" y2="13" />
+            <line x1="8" y1="17" x2="13" y2="17" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
   const renderSessionStatsButton = (mobile: boolean) => {
     if (!mobile && (!showChat || (!sessionStats && !contextUsage))) return null;
 
@@ -1472,13 +1622,14 @@ export function AppShell() {
           gap: mobile ? 7 : 10,
           paddingLeft: mobile ? 6 : 12,
           paddingRight: mobile ? 6 : 12,
-          height: "100%",
+          height: mobile ? "100%" : 32,
           overflow: "hidden",
           visibility: covered ? "hidden" : "visible",
           pointerEvents: covered ? "none" : "auto",
           background: activeTopPanel === "session" ? "var(--bg-selected)" : "none",
           border: "none",
-          borderTop: activeTopPanel === "session" ? "2px solid var(--accent)" : "2px solid transparent",
+          borderTop: mobile ? (activeTopPanel === "session" ? "2px solid var(--accent)" : "2px solid transparent") : "none",
+          borderRadius: mobile ? 0 : 9,
           fontSize: 11, color: "var(--text-muted)",
           whiteSpace: "nowrap", cursor: showChat ? "pointer" : "default",
           fontVariantNumeric: "tabular-nums",
@@ -1585,7 +1736,7 @@ export function AppShell() {
         aria-label={rightPanelOpen ? translate("files.hidePanel") : translate("files.showPanel")}
         data-mobile-toolbar-file={mobile ? "true" : undefined}
         style={{
-          marginLeft: !mobile && !sessionStats && !contextUsage ? "auto" : 0,
+          marginLeft: !mobile ? "auto" : 0,
           display: "flex", alignItems: "center", justifyContent: "center",
           width: TOP_BAR_ICON_BUTTON_SIZE, height: TOP_BAR_ICON_BUTTON_SIZE, padding: 0,
           visibility: covered ? "hidden" : "visible",
@@ -1997,12 +2148,6 @@ export function AppShell() {
               )}
             </div>
           )}
-          {!isMobile && (
-            <>
-              {renderChatToolbarActions(false)}
-              {renderSessionStatsButton(false)}
-            </>
-          )}
           {!isMobile && renderMainFileToggle(false)}
           {isMobile && (
             <BranchNavigator
@@ -2022,10 +2167,11 @@ export function AppShell() {
           {activeTopPanel && topPanelPos && (
             <div className="titlebar-no-drag" style={{
               position: "fixed",
-              top: topPanelPos.top,
+              ...(topPanelPos.bottom != null
+                ? { bottom: topPanelPos.bottom, maxHeight: `calc(100dvh - ${topPanelPos.bottom}px)` }
+                : { top: topPanelPos.top, maxHeight: `calc(100dvh - ${topPanelPos.top}px)` }),
               left: topPanelPos.left,
               width: topPanelPos.width,
-              maxHeight: `calc(100dvh - ${topPanelPos.top}px)`,
               overflowY: "auto",
               zIndex: 500,
             }}>
@@ -2085,7 +2231,8 @@ export function AppShell() {
               {activeTopPanel === "system" && (
                 <div style={{
                   background: "var(--bg-panel)",
-                  borderBottom: "1px solid var(--border)",
+                  border: "1px solid var(--border)",
+                  boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
                 }}>
                   {systemPrompt ? (
                     <div style={{
@@ -2114,7 +2261,7 @@ export function AppShell() {
               {activeTopPanel === "session" && (
                 <div className="session-info-popover" style={{
                   background: "var(--bg-panel)",
-                  borderBottom: "1px solid var(--border)",
+                  border: "1px solid var(--border)",
                   boxShadow: "0 10px 28px rgba(0,0,0,0.10)",
                   padding: "12px 16px",
                 }}>
@@ -2313,6 +2460,12 @@ export function AppShell() {
               onSoundToggle={onSoundToggle}
               playDoneSound={playDoneSound}
               unlockAudio={unlockAudio}
+              composerFooter={!isMobile ? (
+                <div ref={composerFooterRef} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                  {renderComposerFooterLeft()}
+                  {renderSessionStatsButton(false)}
+                </div>
+              ) : undefined}
             />
           ) : initialCwdStatus === "validating" ? (
             <div

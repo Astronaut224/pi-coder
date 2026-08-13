@@ -20,6 +20,12 @@ interface Props {
   hasSession?: boolean;
   /** When inline, render icon-only (no text label) to save horizontal space */
   compact?: boolean;
+  /** When inline, open the dropdown upward (for footers) instead of downward */
+  dropUp?: boolean;
+  /** When dropUp, anchor the dropdown's bottom edge (and maxHeight) to this ref
+   *  while still sizing width/left from containerRef. Lets a wide container
+   *  (e.g. the top bar) be paired with a footer anchor for vertical position. */
+  bottomAnchorRef?: React.RefObject<HTMLElement | null>;
   /** Keep the inline dropdown mounted while another control supplies its trigger */
   hideInlineButton?: boolean;
 }
@@ -247,12 +253,12 @@ function TreeNodeView({ node, activePathIds, depth, isLast, parentLines, onSelec
   );
 }
 
-export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, containerRef, open: openProp, onToggle, hasSession, compact, hideInlineButton }: Props) {
+export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, containerRef, open: openProp, onToggle, hasSession, compact, hideInlineButton, dropUp, bottomAnchorRef }: Props) {
   const { t } = useI18n();
   const [openInternal, setOpenInternal] = useState(false);
   const open = openProp !== undefined ? openProp : openInternal;
   const btnRef = useRef<HTMLButtonElement>(null);
-  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top?: number; bottom?: number; maxHeight?: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
     if (!open || !inline) return;
@@ -260,13 +266,23 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
     if (!anchor) return;
     const update = () => {
       const rect = anchor.getBoundingClientRect();
-      setDropdownPos({ top: rect.bottom, left: rect.left, width: rect.width });
+      if (dropUp) {
+        // Open upward. Width/left follow containerRef; the bottom edge and
+        // maxHeight follow a separate bottom anchor when provided, so a wide
+        // container (e.g. the top bar) can be paired with a footer anchor.
+        const bottomAnchor = bottomAnchorRef?.current ?? anchor;
+        const bottomRect = bottomAnchor.getBoundingClientRect();
+        setDropdownPos({ bottom: window.innerHeight - bottomRect.top, maxHeight: Math.max(160, bottomRect.top - 8), left: rect.left, width: rect.width });
+      } else {
+        setDropdownPos({ top: rect.bottom, left: rect.left, width: rect.width });
+      }
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(anchor);
+    if (bottomAnchorRef?.current) ro.observe(bottomAnchorRef.current);
     return () => ro.disconnect();
-  }, [open, inline, containerRef]);
+  }, [open, inline, containerRef, dropUp, bottomAnchorRef]);
 
   const activePathIds = useMemo(
     () => buildActivePath(tree, activeLeafId),
@@ -316,8 +332,10 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
             padding: "0 12px",
             background: open ? "var(--bg-selected)" : "none",
             border: "none",
-            borderTop: open ? "2px solid var(--accent)" : "2px solid transparent",
-            borderRight: "1px solid var(--border)",
+            ...(dropUp
+              ? {}
+              : { borderTop: open ? "2px solid var(--accent)" : "2px solid transparent" }),
+            borderRight: dropUp ? "none" : "1px solid var(--border)",
             cursor: "pointer",
             color: open ? "var(--text)" : "var(--text-muted)",
             fontSize: 11,
@@ -336,11 +354,13 @@ export function BranchNavigator({ tree, activeLeafId, onLeafChange, inline, cont
         {open && dropdownPos && (
           <div className="titlebar-no-drag" style={{
             position: "fixed",
-            top: dropdownPos.top,
+            ...(dropdownPos.top != null ? { top: dropdownPos.top } : { bottom: dropdownPos.bottom }),
             left: dropdownPos.left,
             width: dropdownPos.width,
+            maxHeight: dropdownPos.maxHeight,
+            overflowY: "auto",
             background: "var(--bg-panel)",
-            borderBottom: "1px solid var(--border)",
+            ...(dropUp ? { border: "1px solid var(--border)", boxShadow: "0 10px 28px rgba(0,0,0,0.10)" } : { borderBottom: "1px solid var(--border)" }),
             zIndex: 500,
           }}>
             {hasContent ? (
