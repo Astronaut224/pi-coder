@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getFileIcon } from "./FileIcons";
 import { useI18n } from "@/hooks/useI18n";
+import type { FileViewerDisplayMode, FileViewerState } from "@/lib/file-viewer-state";
 
 export interface Tab {
   id: string;
@@ -11,7 +12,9 @@ export interface Tab {
   kind?: "file" | "chat";
   mainSessionId?: string | null;
   sourceSessionId?: string | null;
-  initialDisplayMode?: "source" | "preview" | "diff";
+  initialDisplayMode?: FileViewerDisplayMode;
+  viewerState?: FileViewerState;
+  viewerRevision?: number;
 }
 
 interface Props {
