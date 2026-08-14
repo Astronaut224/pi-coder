@@ -29,7 +29,7 @@ export function createTray(): Tray {
   if (process.platform === "darwin") image.setTemplateImage(true);
 
   tray = new Tray(image.isEmpty() ? nativeImage.createEmpty() : image);
-  tray.setToolTip("pi-web");
+  tray.setToolTip("pi-coder");
 
   const rebuildMenu = () => {
     tray!.setContextMenu(

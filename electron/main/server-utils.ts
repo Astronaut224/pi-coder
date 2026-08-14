@@ -1,6 +1,14 @@
 import net from "node:net";
 import http from "node:http";
 
+/**
+ * 固定首选端口。standalone 模式优先绑定它,使 Electron 加载的 origin
+ * (http://127.0.0.1:<port>) 在每次启动时保持不变。localStorage 按 origin
+ * 隔离,端口随机变会导致主题/深浅色/会话置顶/完成状态等全部丢失。
+ * 端口被占时回退到任意空闲端口,不影响启动成功率(仅该次无法持久化)。
+ */
+export const PREFERRED_PORT = 30141;
+
 /** 组合 Next standalone 子进程所需的环境变量。 */
 export function buildServerEnv(
   port: number,
@@ -15,20 +23,34 @@ export function buildServerEnv(
   };
 }
 
-/** 在 127.0.0.1 上获取一个当前空闲的端口。 */
-export function getFreePort(): Promise<number> {
+/**
+ * 在 127.0.0.1 上获取一个空闲端口。传入 preferred 时优先尝试该端口,
+ * 若被占用则回退到任意空闲端口(端口 0 由 OS 分配)——保证固定端口
+ * (从而 renderer 的 localStorage origin 稳定)的同时不影响启动成功率。
+ */
+export function getFreePort(preferred?: number): Promise<number> {
   return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.on("error", reject);
-    srv.listen(0, "127.0.0.1", () => {
-      const addr = srv.address();
-      if (addr && typeof addr === "object") {
-        const { port } = addr;
-        srv.close(() => resolve(port));
-      } else {
-        reject(new Error("failed to obtain a free port"));
-      }
-    });
+    const attempt = (port: number | undefined, isFallback: boolean) => {
+      const srv = net.createServer();
+      srv.on("error", () => {
+        if (isFallback) {
+          reject(new Error("failed to obtain a free port"));
+          return;
+        }
+        // 首选端口被占用,回退到任意空闲端口
+        attempt(undefined, true);
+      });
+      srv.listen(port ?? 0, "127.0.0.1", () => {
+        const addr = srv.address();
+        if (addr && typeof addr === "object") {
+          const bound = addr.port;
+          srv.close(() => resolve(bound));
+        } else {
+          reject(new Error("failed to obtain a free port"));
+        }
+      });
+    };
+    attempt(preferred, false);
   });
 }
 

@@ -4,6 +4,7 @@ import { app } from "electron";
 import {
   buildServerEnv,
   getFreePort,
+  PREFERRED_PORT,
   RestartTracker,
   waitForReady,
 } from "./server-utils";
@@ -45,7 +46,7 @@ export class ServerManager {
       return { port: new URL(url).port ? Number(new URL(url).port) : 80, url };
     }
 
-    const port = await getFreePort();
+    const port = await getFreePort(PREFERRED_PORT);
     if (this.stopping) {
       throw new Error("server manager is stopping; aborting fork");
     }
