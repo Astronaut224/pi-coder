@@ -107,6 +107,57 @@ const MODEL_FILTER_THRESHOLD = 8;
 const MODEL_OPTION_COLLATOR = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const ANCHORED_MENU_GAP = 8;
 
+// ── Composer (input box) height model ─────────────────────────────────────
+// The composer is a fixed-height editor (no auto-grow): once the user starts
+// typing the visible area defaults to 3 lines and scrolls when content
+// exceeds it. The height can be dragged (persisted to localStorage) or
+// toggled to a maximized "expanded" size via the top-right button.
+const COMPOSER_FONT_PX = 14;
+const COMPOSER_LINE_HEIGHT = 1.6;
+const COMPOSER_LINE_BOX_PX = COMPOSER_FONT_PX * COMPOSER_LINE_HEIGHT; // 22.4
+const COMPOSER_EMPTY_HEIGHT = 24; // ~1 line, compact idle state
+const COMPOSER_DEFAULT_HEIGHT = Math.ceil(COMPOSER_LINE_BOX_PX * 3); // ~68, 3 lines
+const COMPOSER_DRAG_MIN = COMPOSER_DEFAULT_HEIGHT; // manual resize never shrinks below 3 lines
+const COMPOSER_HEIGHT_STORAGE_KEY = "pi-composer-height";
+
+function getComposerExpandedHeight(): number {
+  if (typeof window === "undefined") return 360;
+  return Math.max(240, Math.min(Math.floor(window.innerHeight * 0.6), 560));
+}
+
+function getComposerDragMax(): number {
+  if (typeof window === "undefined") return 560;
+  return Math.max(COMPOSER_DRAG_MIN, Math.floor(window.innerHeight * 0.8));
+}
+
+function readStoredComposerHeight(): number | null {
+  try {
+    const stored = window.localStorage.getItem(COMPOSER_HEIGHT_STORAGE_KEY);
+    if (stored === null) return null;
+    const parsed = Number.parseInt(stored, 10);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.min(Math.max(parsed, COMPOSER_DRAG_MIN), getComposerDragMax());
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredComposerHeight(height: number): void {
+  try {
+    window.localStorage.setItem(COMPOSER_HEIGHT_STORAGE_KEY, String(height));
+  } catch {
+    // Resizing remains available when storage is unavailable.
+  }
+}
+
+function removeStoredComposerHeight(): void {
+  try {
+    window.localStorage.removeItem(COMPOSER_HEIGHT_STORAGE_KEY);
+  } catch {
+    // Removal is best-effort.
+  }
+}
+
 export function getUpwardMenuMaxHeight(menuBottom: number, visibleTop: number, gap = ANCHORED_MENU_GAP): number {
   return Math.max(0, Math.floor(menuBottom - visibleTop - gap));
 }
@@ -455,6 +506,27 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
   valueRef.current = value;
   attachedImagesRef.current = attachedImages;
 
+  // Composer height: a user-controllable fixed-height editor. `composerHeight`
+  // is a manual override (px, persisted to localStorage); `composerExpanded`
+  // toggles a maximized size. When neither is set, the box is compact
+  // (~1 line) when empty and defaults to 3 visible lines once there is text.
+  const [composerHeight, setComposerHeight] = useState<number | null>(null);
+  const [composerExpanded, setComposerExpanded] = useState(false);
+  const [composerExpandedHeight, setComposerExpandedHeight] = useState(360);
+  const composerDragRef = useRef<{
+    pointerId: number;
+    target: HTMLDivElement;
+    startY: number;
+    startHeight: number;
+    liveHeight: number;
+    previousCursor: string;
+    previousUserSelect: string;
+  } | null>(null);
+
+  const resolvedComposerHeight = composerExpanded
+    ? composerExpandedHeight
+    : composerHeight ?? (value ? COMPOSER_DEFAULT_HEIGHT : COMPOSER_EMPTY_HEIGHT);
+
   useImperativeHandle(ref, () => ({
     insertIfEmpty(text: string) {
       const ta = textareaRef.current;
@@ -466,8 +538,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       requestAnimationFrame(() => {
         if (!ta) return;
         ta.focus();
-        ta.style.height = "auto";
-        ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
       });
     },
     replaceMessage(message: UserMessage) {
@@ -489,8 +559,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       requestAnimationFrame(() => {
         if (!ta) return;
         ta.focus();
-        ta.style.height = "auto";
-        ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
       });
     },
     prependText(text: string) {
@@ -507,8 +575,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         if (!ta) return;
         ta.focus();
         ta.setSelectionRange(combined.length, combined.length);
-        ta.style.height = "auto";
-        ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
       });
     },
     rekeyDraft(previousKey: string, nextKey: string) {
@@ -603,8 +669,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         if (!ta) return;
         ta.focus();
         ta.setSelectionRange(ta.value.length, ta.value.length);
-        ta.style.height = "auto";
-        ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
       });
     },
     insertText(text: string) {
@@ -627,8 +691,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
         const pos = start + sep.length + text.length;
         ta.setSelectionRange(pos, pos);
         ta.focus();
-        ta.style.height = "auto";
-        ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
       });
     },
     addImages(files: File[]) {
@@ -701,9 +763,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     if (draftKey) clearDraft(draftKey);
     if (draftKeyRef.current && draftKeyRef.current !== draftKey) clearDraft(draftKeyRef.current);
     clearImages();
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
   }, [clearImages, draftKey]);
 
   useEffect(() => {
@@ -739,13 +798,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       return nextImages;
     });
   }, [draftKey]);
-
-  useEffect(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    if (value) ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
-  }, [value]);
 
   useEffect(() => {
     return () => {
@@ -918,8 +970,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       if (!el) return;
       el.focus();
       el.setSelectionRange(newPos, newPos);
-      el.style.height = "auto";
-      el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
     });
   }, [atQuery, value]);
 
@@ -963,8 +1013,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       if (!ta) return;
       ta.focus();
       ta.setSelectionRange(text.length, text.length);
-      ta.style.height = "auto";
-      ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     });
   }, []);
 
@@ -978,8 +1026,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
       if (!ta) return;
       ta.focus();
       ta.setSelectionRange(nextValue.length, nextValue.length);
-      ta.style.height = "auto";
-      ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
     });
   }, []);
 
@@ -1169,12 +1215,94 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
     [isMobile, isStreaming, onSteer, onFollowUp, onAbort, slashMenuOpen, slashQuery, displayedSlashCommands, slashActiveIndex, applySlashCommand, sendQueued, handleSend, getNextSlashIndex, atMenuOpen, atQuery, atMatches, atActiveIndex, applyAtCompletion, historyMenuOpen, inputHistory, historyActiveIndex, applyHistoryInput, value]
   );
 
-  const handleInput = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${Math.min(ta.scrollHeight, 200)}px`;
+  const finishComposerDrag = useCallback((pointerId: number) => {
+    const drag = composerDragRef.current;
+    if (!drag || drag.pointerId !== pointerId) return;
+    composerDragRef.current = null;
+    document.body.style.cursor = drag.previousCursor;
+    document.body.style.userSelect = drag.previousUserSelect;
+    const next = Math.min(Math.max(drag.liveHeight, COMPOSER_DRAG_MIN), getComposerDragMax());
+    setComposerHeight(next);
+    setComposerExpanded(false);
+    writeStoredComposerHeight(next);
+    try {
+      if (drag.target.hasPointerCapture(pointerId)) {
+        drag.target.releasePointerCapture(pointerId);
+      }
+    } catch {
+      // The browser may have already released capture after pointer cancellation.
+    }
   }, []);
+
+  const onComposerGripPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const active = composerDragRef.current;
+    if (active) finishComposerDrag(active.pointerId);
+    const target = event.currentTarget;
+    try { target.setPointerCapture(event.pointerId); } catch { /* capture optional */ }
+    composerDragRef.current = {
+      pointerId: event.pointerId,
+      target,
+      startY: event.clientY,
+      startHeight: resolvedComposerHeight,
+      liveHeight: resolvedComposerHeight,
+      previousCursor: document.body.style.cursor,
+      previousUserSelect: document.body.style.userSelect,
+    };
+    document.body.style.cursor = "ns-resize";
+    document.body.style.userSelect = "none";
+  }, [finishComposerDrag, resolvedComposerHeight]);
+
+  const onComposerGripPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = composerDragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (event.pointerType === "mouse" && event.buttons === 0) {
+      finishComposerDrag(event.pointerId);
+      return;
+    }
+    event.preventDefault();
+    // The composer is anchored at the bottom, so dragging the grip UP grows it.
+    const delta = drag.startY - event.clientY;
+    const next = Math.min(Math.max(drag.startHeight + delta, COMPOSER_DRAG_MIN), getComposerDragMax());
+    drag.liveHeight = next;
+    setComposerHeight(next);
+    setComposerExpanded(false);
+  }, [finishComposerDrag]);
+
+  const onComposerGripPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    finishComposerDrag(event.pointerId);
+  }, [finishComposerDrag]);
+
+  const toggleComposerExpanded = useCallback(() => {
+    setComposerExpanded((prev) => {
+      const next = !prev;
+      if (next) setComposerExpandedHeight(getComposerExpandedHeight());
+      return next;
+    });
+  }, []);
+
+  const resetComposerHeight = useCallback(() => {
+    setComposerHeight(null);
+    setComposerExpanded(false);
+    removeStoredComposerHeight();
+  }, []);
+
+  // Restore the user's preferred composer height once on mount.
+  useEffect(() => {
+    const stored = readStoredComposerHeight();
+    if (stored !== null) setComposerHeight(stored);
+  }, []);
+
+  // Keep the expanded height in sync with the viewport while maximized.
+  useEffect(() => {
+    if (!composerExpanded) return;
+    const onResize = () => setComposerExpandedHeight(getComposerExpandedHeight());
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [composerExpanded]);
 
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = Array.from(e.clipboardData?.items ?? []);
@@ -1891,6 +2019,64 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
             } as React.CSSProperties}
           >
+          {/* Top row: drag-to-resize grip (left/center) | expand button (right) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexShrink: 0, height: 18, marginTop: -2 }}>
+            <div
+              role="separator"
+              aria-orientation="horizontal"
+              aria-label={t("chat.resizeComposer")}
+              title={t("chat.resizeComposer")}
+              tabIndex={0}
+              onPointerDown={onComposerGripPointerDown}
+              onPointerMove={onComposerGripPointerMove}
+              onPointerUp={onComposerGripPointerUp}
+              onPointerCancel={onComposerGripPointerUp}
+              onLostPointerCapture={onComposerGripPointerUp}
+              onDoubleClick={resetComposerHeight}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Home" || e.key === "End") {
+                  e.preventDefault();
+                  resetComposerHeight();
+                }
+              }}
+              style={{ flex: 1, height: "100%", cursor: "ns-resize", touchAction: "none", display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, outline: "none" }}
+            >
+              <span aria-hidden="true" style={{ width: 32, height: 3, borderRadius: 999, background: "color-mix(in srgb, var(--border) 80%, transparent)" }} />
+            </div>
+            <button
+              type="button"
+              onClick={toggleComposerExpanded}
+              title={composerExpanded ? t("chat.collapseComposer") : t("chat.expandComposer")}
+              aria-label={composerExpanded ? t("chat.collapseComposer") : t("chat.expandComposer")}
+              aria-pressed={composerExpanded}
+              style={{
+                flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                width: 26, height: 26, padding: 0,
+                background: "none", border: "none", borderRadius: 7,
+                color: composerExpanded ? "var(--accent)" : "var(--text-dim)",
+                cursor: "pointer",
+                transition: "background 0.12s, color 0.12s",
+              }}
+              onMouseEnter={(e) => { if (!composerExpanded) { e.currentTarget.style.background = "var(--bg-hover)"; e.currentTarget.style.color = "var(--text-muted)"; } }}
+              onMouseLeave={(e) => { if (!composerExpanded) { e.currentTarget.style.background = "none"; e.currentTarget.style.color = "var(--text-dim)"; } }}
+            >
+              {composerExpanded ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+                  <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+                  <path d="M3 16h3a2 2 0 0 1 2 2v3" />
+                  <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+                </svg>
+              ) : (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+                  <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+                  <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+                  <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+                </svg>
+              )}
+            </button>
+          </div>
           <textarea
             ref={textareaRef}
             value={value}
@@ -1914,7 +2100,6 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
               const el = e.currentTarget;
               updateAtQuery(el.value, el.selectionStart);
             }}
-            onInput={handleInput}
             onPaste={handlePaste}
             onFocus={() => setInputFocused(true)}
             onBlur={() => setInputFocused(false)}
@@ -1924,21 +2109,23 @@ export const ChatInput = forwardRef<ChatInputHandle, Props>(function ChatInput({
                 : isStreaming ? t("chat.agentPlaceholder")
                 : t("chat.messagePlaceholder")
             }
-            rows={1}
+            rows={3}
             style={{
-              flex: 1,
+              flex: "none",
               minWidth: 0,
               width: "100%",
+              height: resolvedComposerHeight,
               background: "none",
               border: "none",
               outline: "none",
               resize: "none",
               color: "var(--text)",
-              fontSize: 14,
-              lineHeight: 1.6,
+              fontSize: COMPOSER_FONT_PX,
+              lineHeight: COMPOSER_LINE_HEIGHT,
               fontFamily: "inherit",
-              minHeight: 24,
-              maxHeight: 200,
+              padding: 0,
+              minHeight: COMPOSER_EMPTY_HEIGHT,
+              maxHeight: "none",
               overflow: "auto",
             }}
           />
