@@ -21,7 +21,7 @@ function formatBytes(bytes: number): string {
  */
 export function UpdateIndicator() {
   const { t } = useI18n();
-  const { status, showIndicator, currentVersion, install, retry } = useUpdateStatus();
+  const { status, showIndicator, currentVersion, download, install, retry } = useUpdateStatus();
   const [open, setOpen] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -150,10 +150,52 @@ export function UpdateIndicator() {
                   {t("update.available")}
                 </div>
                 {newVersion && (
-                  <div style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)" }}>
+                  <div style={{ color: "var(--text-muted)", fontFamily: "var(--font-mono)", marginBottom: 4 }}>
                     v{currentVersion || "?"} → v{newVersion}
                   </div>
                 )}
+                <div style={{ color: "var(--text-muted)", marginBottom: 10 }}>
+                  {t("update.confirmPrompt")}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      download();
+                      close();
+                    }}
+                    style={{
+                      flex: 1,
+                      padding: "7px 12px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: "var(--accent)",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t("update.confirmUpdate")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={close}
+                    style={{
+                      flex: 1,
+                      padding: "7px 12px",
+                      borderRadius: 6,
+                      border: "1px solid var(--border)",
+                      background: "var(--bg-hover)",
+                      color: "var(--text)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {t("update.cancel")}
+                  </button>
+                </div>
               </>
             )}
 

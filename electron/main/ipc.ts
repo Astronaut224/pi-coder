@@ -1,8 +1,7 @@
 import { ipcMain, dialog, BrowserWindow, app, shell } from "electron";
-import { autoUpdater } from "electron-updater";
 import { getMainWindow } from "./window";
 import { contrastSymbolColor } from "./titlebar-color";
-import { checkForUpdates } from "./updater";
+import { checkForUpdates, downloadUpdate, installUpdate } from "./updater";
 
 /** 注册所有桌面端 IPC handler。 */
 export function registerIpc(): void {
@@ -41,9 +40,16 @@ export function registerIpc(): void {
     }
   });
 
+  // 用户在"确认更新"提示框中确认后触发下载(autoDownload=false,仅此入口开始下载)。
+  ipcMain.handle("desktop:downloadUpdate", () => {
+    downloadUpdate();
+  });
+
   // 立即退出并安装已下载的更新(由渲染端"重启并安装"按钮触发)。
-  ipcMain.handle("desktop:installUpdate", () => {
-    autoUpdater.quitAndInstall();
+  // installUpdate() 会先等待 server 子进程退出,再 quitAndInstall(),避免安装器
+  // 检测到残留同名进程而弹出"无法关闭应用程序"对话框。
+  ipcMain.handle("desktop:installUpdate", async () => {
+    await installUpdate();
   });
 
   // 手动触发一次更新检查(由渲染端"重试"按钮触发);错误由 updater 内部静默处理。

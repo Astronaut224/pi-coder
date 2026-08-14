@@ -117,12 +117,44 @@ export class ServerManager {
   }
 
   /**
+   * 强杀 server 子进程并等待其真正退出(最长 timeoutMs),专用于"退出并安装更新"前
+   * 确保 NSIS 安装器 spawn 时已无同名 Pi Coder.exe 残留。
+   *
+   * 与 killNow() 的区别:killNow() 发完 SIGKILL 立即返回,不等待进程被 OS 回收;
+   * 本方法会 await 子进程的 exit 事件(或超时),从而在调用 quitAndInstall()
+   * 之前让进程彻底消失。这修复了安装器 spawn 后仍检测到残留 Pi Coder.exe、
+   * 反复弹出"无法关闭应用程序"对话框的 bug。
+   */
+  async killAndWait(timeoutMs = 5000): Promise<void> {
+    this.stopping = true;
+    const c = this.child;
+    this.child = null;
+    if (!c) return;
+    // 进程已退出则无需等待
+    if (c.exitCode !== null || c.signalCode !== null) return;
+    try {
+      c.kill("SIGKILL");
+    } catch {
+      /* 进程已退出 */
+    }
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (!settled) {
+          settled = true;
+          resolve();
+        }
+      };
+      c.once("exit", finish);
+      setTimeout(finish, timeoutMs).unref();
+    });
+  }
+
+  /**
    * 同步、瞬时地强杀 server 子进程(发 SIGKILL 后立即返回,不等待 exit)。
    *
-   * 专用于"下载更新后退出并安装"路径:Electron fork() 出来的 server 子进程与主进程
-   * 同名(都是 Pi Coder.exe)。更新时若主进程被 NSIS 安装器强杀,正在 await 的
-   * server.stop() 会被中断、子进程沦为孤儿,安装器就会反复检测到残留的 Pi Coder.exe
-   * 而弹出"无法关闭"对话框。因此在 app.exit(0) 之前必须先同步消灭它。
+   * 专用于 before-quit-for-update 回调:作为 killAndWait() 之后的安全兜底,确保
+   * 即便 onBeforeInstall 未执行(如 autoInstallOnAppQuit 路径)也不会遗留孤儿进程。
    * 普通退出仍走 stop() 的优雅关闭。
    */
   killNow(): void {

@@ -16,6 +16,8 @@ const api = {
     ipcRenderer.on("desktop:updateStatus", handler);
     return () => ipcRenderer.removeListener("desktop:updateStatus", handler);
   },
+  /** 用户确认更新后触发下载(autoDownload=false 时仅此入口开始下载)。 */
+  downloadUpdate: () => ipcRenderer.invoke("desktop:downloadUpdate"),
   /** 立即退出并安装已下载的更新。 */
   installUpdate: () => ipcRenderer.invoke("desktop:installUpdate"),
   /** 手动触发一次更新检查(用于失败后重试)。 */

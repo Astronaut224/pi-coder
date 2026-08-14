@@ -27,6 +27,7 @@ interface DesktopUpdateApi {
   version?: string;
   onUpdateStatus?: (cb: (status: UpdateStatus) => void) => () => void;
   installUpdate?: () => Promise<unknown> | void;
+  downloadUpdate?: () => Promise<unknown> | void;
   checkForUpdates?: () => Promise<unknown> | void;
 }
 
@@ -46,6 +47,7 @@ export interface UseUpdateStatusResult {
   status: UpdateStatus | null;
   showIndicator: boolean;
   currentVersion: string;
+  download: () => void;
   install: () => void;
   retry: () => void;
 }
@@ -67,6 +69,10 @@ export function useUpdateStatus(): UseUpdateStatusResult {
     void desktop?.installUpdate?.();
   }, [desktop]);
 
+  const download = useCallback(() => {
+    void desktop?.downloadUpdate?.();
+  }, [desktop]);
+
   const retry = useCallback(() => {
     void desktop?.checkForUpdates?.();
   }, [desktop]);
@@ -74,5 +80,5 @@ export function useUpdateStatus(): UseUpdateStatusResult {
   const showIndicator =
     isDesktop && status !== null && INDICATOR_STATES.has(status.state);
 
-  return { status, showIndicator, currentVersion: desktop?.version ?? "", install, retry };
+  return { status, showIndicator, currentVersion: desktop?.version ?? "", download, install, retry };
 }

@@ -58,12 +58,21 @@ if (!gotLock) {
       // Auto-update is a NON-CRITICAL feature: isolate init so an updater failure
       // cannot abort app startup.
       try {
-        initUpdater(() => {
-          // 更新专用快速退出:同步强杀同名 server 子进程后立即退出,跳过 before-quit
-          // 里 server.stop() 的最长 3s 等待,赶在 NSIS 安装器检测之前让进程消失,
-          // 避免弹"无法关闭"对话框并卡住自动更新。
-          server?.killNow();
-          app.exit(0);
+        initUpdater({
+          // before-quit-for-update 兜底:同步强杀 server 子进程后立即退出,跳过
+          // before-quit 里 server.stop() 的最长 3s 等待,赶在 NSIS 安装器检测之前
+          // 让进程消失。正常情况下 installUpdate() 的 onBeforeInstall 已先行处理。
+          onBeforeQuitForUpdate: () => {
+            server?.killNow();
+            app.exit(0);
+          },
+          // 关键修复:在 quitAndInstall() spawn NSIS 安装器之前,同步强杀并等待
+          // server 子进程真正退出。否则安装器启动后仍检测到残留的同名
+          // Pi Coder.exe,反复弹"无法关闭应用程序,请手动关闭后重试"对话框,
+          // 而此时界面与托盘里已无应用可手动关闭。
+          onBeforeInstall: async () => {
+            await server?.killAndWait();
+          },
         });
       } catch (err) {
         console.warn("[desktop] updater init failed", err);
