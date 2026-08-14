@@ -1,3 +1,5 @@
+import { execFileSync } from "node:child_process";
+import path from "node:path";
 import { app, Menu, nativeTheme, shell, type Menu as MenuType, type MenuItemConstructorOptions } from "electron";
 import { ServerManager } from "./server-manager";
 import { registerIpc } from "./ipc";
@@ -59,11 +61,22 @@ if (!gotLock) {
       // cannot abort app startup.
       try {
         initUpdater({
-          // before-quit-for-update 兜底:同步强杀 server 子进程后立即退出,跳过
-          // before-quit 里 server.stop() 的最长 3s 等待,赶在 NSIS 安装器检测之前
-          // 让进程消失。正常情况下 installUpdate() 的 onBeforeInstall 已先行处理。
+          // before-quit-for-update 兜底:quitAndInstall() 在 setImmediate 里先 spawn
+          // NSIS 安装器,再派发此事件。此时主进程仍存活,但 app.exit(0) 会立即退出
+          // 主进程而不优雅关闭 Electron 辅助进程(GPU/utility/renderer,在 Windows 上
+          // 同名 "Pi Coder.exe")——这些孤儿进程继续占用主 exe 文件句柄,导致安装器
+          // CHECK_APP_RUNNING 检测到残留进程、CopyFiles 失败,反复弹"无法关闭应用
+          // 程序,请手动关闭后重试"对话框,而此时界面与托盘里已无应用可手动关闭。
+          //
+          // 修复:在 app.exit(0) 之前,同步 taskkill 掉所有同名辅助进程(排除当前
+          // 主进程 PID)。由于本回调从 emit() 同步触发、app.exit(0) 紧随其后在同一
+          // 同步 tick 内执行,中间没有事件循环机会,Electron 来不及重启被杀的辅助
+          // 进程,从而保证安装器启动时已无任何 Pi Coder.exe 残留。
+          // 正常情况下 installUpdate() 的 onBeforeInstall 已先行 killAndWait 处理
+          // server 子进程;此处的 taskkill 同时覆盖 Electron 辅助进程。
           onBeforeQuitForUpdate: () => {
             server?.killNow();
+            killAppHelpersSync();
             app.exit(0);
           },
           // 关键修复:在 quitAndInstall() spawn NSIS 安装器之前,同步强杀并等待
@@ -155,3 +168,26 @@ app.on("before-quit", async (e) => {
 app.on("will-quit", () => {
   unregisterGlobalShortcut();
 });
+
+/**
+ * 同步强杀所有与主进程同名的 Electron 辅助进程(GPU/utility/renderer),
+ * 排除当前主进程 PID。专用于更新安装前的清理(onBeforeQuitForUpdate)。
+ *
+ * app.exit(0) 会立即退出主进程但不优雅关闭辅助进程,这些孤儿进程在 Windows
+ * 上同名 "Pi Coder.exe" 并继续锁定主 exe 文件,导致 NSIS 安装器报
+ * "无法关闭应用程序"。本函数在 app.exit(0) 之前同步 taskkill 掉它们,
+ * 确保安装器启动时无残留进程。taskkill /F 会等待进程终止;若无可匹配进程
+ * (exit code 128)则忽略——这是预期行为(辅助进程可能已退出)。
+ */
+function killAppHelpersSync(): void {
+  if (process.platform !== "win32") return;
+  const exeName = path.basename(process.execPath);
+  try {
+    execFileSync("taskkill", ["/F", "/IM", exeName, "/FI", `PID ne ${process.pid}`], {
+      stdio: "ignore",
+      shell: false,
+    });
+  } catch {
+    // exit code 128 = no matching process — expected when helpers already exited
+  }
+}
